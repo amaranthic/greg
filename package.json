@@ -1,0 +1,40 @@
+{
+  "name": "@amaranthic/greg",
+  "version": "0.1.0",
+  "description": "The post-modern autonomous print agent powered by Hernex",
+  "type": "module",
+  "bin": {
+    "greg": "./src/main.ts"
+  },
+  "main": "./src/main.ts",
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.2"
+  },
+  "scripts": {
+    "start": "bun run src/main.ts",
+    "dev": "bun --watch run src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "build": "bun build --compile --no-env-file src/main.ts --outfile=greg"
+  },
+  "dependencies": {
+    "@amaranthic/hernex": "0.2.0",
+    "citty": "0.2.2",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "@types/node": "^22.13.9",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  },
+  "author": "Amaranthic",
+  "license": "MIT"
+}
