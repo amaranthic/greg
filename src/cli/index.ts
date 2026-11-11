@@ -3,10 +3,10 @@
  * @packageDocumentation
  */
 
-export { configCommand } from "./config.js";
+export { createConfigCommand, type ConfigSubcommandOptions } from "./config.js";
 
-export { threadsCommand } from "./threads.js";
+export { createThreadsCommand, type ThreadSubcommandOptions } from "./threads.js";
 
-export { checkpointsCommand } from "./checkpoints.js";
+export { createCheckpointsCommand, type CheckpointSubcommandOptions } from "./checkpoints.js";
 
 export { executeRunAction, type RunCommandArgs } from "./run.js";

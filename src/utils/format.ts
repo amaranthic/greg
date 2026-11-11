@@ -22,7 +22,12 @@ export function parseDurationMs(duration: string): number {
 
   if (!match) {
     const fallback = Number(trimmed);
-    return Number.isFinite(fallback) && fallback > 0 ? fallback : 30 * 60 * 1000;
+    if (Number.isFinite(fallback) && fallback > 0) {
+      return fallback;
+    }
+    throw new Error(
+      `Invalid duration format: "${duration}". Expected format like "30m", "10s", or "500ms".`,
+    );
   }
 
   const value = parseFloat(match[1]!);

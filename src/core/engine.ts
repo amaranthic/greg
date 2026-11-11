@@ -107,6 +107,18 @@ export async function executePrintRun(
     targetThreadId = randomUUID();
   }
 
+  // Ensure persistent thread record is created if new
+  if (isNewThread && threadStore) {
+    await threadStore.createThread({
+      id: targetThreadId,
+      workingDirectory,
+      model: configuration.model,
+      ...(configuration.settings.effort
+        ? { reasoning: configuration.settings.effort as AgentReasoningLevel }
+        : {}),
+    });
+  }
+
   // Setup tool registry and catalogue exposure filtering
   const toolRegistry = new ToolRegistry({ includeDefaults: true });
   const exposedTools = resolveExposedTools(
@@ -178,21 +190,39 @@ export async function executePrintRun(
 
   try {
     if (!isNewThread && threadStore) {
-      engine = await AgentEngine.fromThread(targetThreadId, {
-        threadStore,
-        tools: toolRegistry,
-        apiKey: configuration.apiKey,
-        baseUrl: configuration.baseUrl,
-        model: configuration.model,
-        checkpoint: isPersistent,
-        abortSignal: signalLifecycle.signal,
-        ...(checkpointStore ? { checkpointStore } : {}),
-        ...(finalInstructions ? { instructions: finalInstructions } : {}),
-        ...(configuration.settings.effort
-          ? { reasoning: configuration.settings.effort as AgentReasoningLevel }
-          : {}),
-        ...(configuration.settings.maxTurns ? { maxSteps: configuration.settings.maxTurns } : {}),
-      });
+      const metadata = await threadStore.getThread(targetThreadId);
+      if (!metadata) {
+        throw new Error(`Thread not found: "${targetThreadId}"`);
+      }
+      let messages = await threadStore.getMessages(targetThreadId);
+      if (options.resumeSessionAt !== undefined && options.resumeSessionAt >= 0) {
+        messages = messages.slice(0, options.resumeSessionAt);
+      }
+      engine = new AgentEngine(
+        {
+          threadId: targetThreadId,
+          workingDirectory: metadata.workingDirectory,
+          model: configuration.model,
+          apiKey: configuration.apiKey,
+          baseUrl: configuration.baseUrl,
+          tools: toolRegistry,
+          persist: isPersistent,
+          checkpoint: isPersistent,
+          abortSignal: signalLifecycle.signal,
+          hooks: {
+            onAuthorizeTool: authHook,
+          },
+          ...(threadStore ? { threadStore } : {}),
+          ...(checkpointStore ? { checkpointStore } : {}),
+          ...(finalInstructions ? { instructions: finalInstructions } : {}),
+          ...(configuration.settings.effort
+            ? { reasoning: configuration.settings.effort as AgentReasoningLevel }
+            : {}),
+          ...(configuration.settings.maxTurns ? { maxSteps: configuration.settings.maxTurns } : {}),
+        },
+        messages,
+        metadata.turnCount,
+      );
     } else {
       engine = new AgentEngine({
         threadId: targetThreadId,
@@ -266,7 +296,9 @@ export async function executePrintRun(
     if (timer) {
       clearTimeout(timer);
     }
-    if (permissionDeniedEncountered) {
+    if (timeoutTriggered) {
+      exitCode = exitCodes.timeout;
+    } else if (permissionDeniedEncountered) {
       exitCode = exitCodes.permissionDenied;
     }
     await sink.finish(exitCode);

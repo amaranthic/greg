@@ -14,7 +14,7 @@ import { writeToStderr } from "../utils/index.js";
  */
 export interface RunCommandArgs {
   readonly prompt?: string | undefined;
-  readonly print?: boolean | undefined;
+  readonly print?: boolean | string | undefined;
   readonly outputFormat?: string | undefined;
   readonly model?: string | undefined;
   readonly effort?: string | undefined;
@@ -46,6 +46,15 @@ export interface RunCommandArgs {
  */
 export async function executeRunAction(args: RunCommandArgs): Promise<void> {
   let effectivePrompt = args.prompt?.trim();
+
+  // If -p was passed with an inline prompt string, take it
+  if (
+    (!effectivePrompt || effectivePrompt.length === 0) &&
+    typeof args.print === "string" &&
+    args.print.trim().length > 0
+  ) {
+    effectivePrompt = args.print.trim();
+  }
 
   // If no positional prompt was provided, attempt reading from piped stdin
   if (!effectivePrompt || effectivePrompt.length === 0) {

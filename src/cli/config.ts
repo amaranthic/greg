@@ -3,7 +3,7 @@
  * @packageDocumentation
  */
 
-import { defineCommand } from "citty";
+import { Command } from "commander";
 import {
   addSettingValue,
   getSettingValue,
@@ -17,211 +17,131 @@ import {
 import { writeToStderr, writeToStdout } from "../utils/index.js";
 
 /**
- * Command for retrieving a single configuration key or the entire configuration object.
+ * Options common to configuration subcommands.
  */
-export const configGetCommand = defineCommand({
-  meta: {
-    name: "get",
-    description: "Display a specific configuration setting or the entire active configuration",
-  },
-  args: {
-    key: {
-      type: "positional",
-      description: "Optional setting key name to retrieve",
-      required: false,
-    },
-    home: {
-      type: "string",
-      description: "Override home directory path",
-    },
-  },
-  async run({ args }) {
-    const home = resolveHomeDirectory(args.home);
-    const settings = await readSettingsFile(home);
+export interface ConfigSubcommandOptions {
+  /** Optional home directory override. */
+  readonly home?: string | undefined;
+}
 
-    if (args.key) {
-      const val = getSettingValue(settings, args.key);
-      if (val === undefined) {
-        writeToStderr(`Setting "${args.key}" is not set.\n`);
+/**
+ * Creates the commander Command for the `config` subcommand tree.
+ *
+ * @returns Fully configured commander Command instance for `config`.
+ *
+ * @example
+ * ```typescript
+ * const configCmd = createConfigCommand();
+ * program.addCommand(configCmd);
+ * ```
+ */
+export function createConfigCommand(): Command {
+  const config = new Command("config").description(
+    "Manage global and workspace configuration settings",
+  );
+
+  config
+    .command("get [key]")
+    .description("Display a specific configuration setting or the entire active configuration")
+    .option("--home <dir>", "Override home directory path")
+    .action(async (key: string | undefined, options: ConfigSubcommandOptions, cmd: Command) => {
+      const mergedOptions = { ...cmd.optsWithGlobals(), ...options };
+      const home = resolveHomeDirectory(mergedOptions.home);
+      const settings = await readSettingsFile(home);
+
+      if (key) {
+        const val = getSettingValue(settings, key);
+        if (val === undefined) {
+          writeToStderr(`Setting "${key}" is not set.\n`);
+          process.exit(1);
+        }
+        writeToStdout(
+          typeof val === "object" ? JSON.stringify(val, null, 2) + "\n" : `${String(val)}\n`,
+        );
+      } else {
+        writeToStdout(JSON.stringify(settings, null, 2) + "\n");
+      }
+    });
+
+  config
+    .command("set <key> <value>")
+    .description("Persist a configuration setting key and value")
+    .option("--home <dir>", "Override home directory path")
+    .action(async (key: string, value: string, options: ConfigSubcommandOptions, cmd: Command) => {
+      const mergedOptions = { ...cmd.optsWithGlobals(), ...options };
+      const home = resolveHomeDirectory(mergedOptions.home);
+      const current = await readSettingsFile(home);
+
+      try {
+        const updated = setSettingValue(current, key, value);
+        await writeSettingsFile(home, updated);
+        writeToStdout(`Set "${key}" successfully.\n`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        writeToStderr(`Failed to set "${key}": ${msg}\n`);
         process.exit(1);
       }
-      writeToStdout(
-        typeof val === "object" ? JSON.stringify(val, null, 2) + "\n" : `${String(val)}\n`,
-      );
-    } else {
-      writeToStdout(JSON.stringify(settings, null, 2) + "\n");
-    }
-  },
-});
+    });
 
-/**
- * Command for setting a configuration property value with automatic validation.
- */
-export const configSetCommand = defineCommand({
-  meta: {
-    name: "set",
-    description: "Persist a configuration setting key and value",
-  },
-  args: {
-    key: {
-      type: "positional",
-      description: "Setting key name to modify",
-      required: true,
-    },
-    value: {
-      type: "positional",
-      description: "Value to set",
-      required: true,
-    },
-    home: {
-      type: "string",
-      description: "Override home directory path",
-    },
-  },
-  async run({ args }) {
-    const home = resolveHomeDirectory(args.home);
-    const current = await readSettingsFile(home);
+  config
+    .command("add <key> <value>")
+    .description("Append an item to an array configuration setting")
+    .option("--home <dir>", "Override home directory path")
+    .action(async (key: string, value: string, options: ConfigSubcommandOptions, cmd: Command) => {
+      const mergedOptions = { ...cmd.optsWithGlobals(), ...options };
+      const home = resolveHomeDirectory(mergedOptions.home);
+      const current = await readSettingsFile(home);
 
-    try {
-      const updated = setSettingValue(current, args.key, args.value);
-      await writeSettingsFile(home, updated);
-      writeToStdout(`Set "${args.key}" successfully.\n`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      writeToStderr(`Failed to set "${args.key}": ${msg}\n`);
-      process.exit(1);
-    }
-  },
-});
+      try {
+        const updated = addSettingValue(current, key, value);
+        await writeSettingsFile(home, updated);
+        writeToStdout(`Added "${value}" to "${key}".\n`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        writeToStderr(`Failed to add to "${key}": ${msg}\n`);
+        process.exit(1);
+      }
+    });
 
-/**
- * Command for appending a value to an array-based setting (e.g. allowedTools).
- */
-export const configAddCommand = defineCommand({
-  meta: {
-    name: "add",
-    description: "Append an item to an array configuration setting",
-  },
-  args: {
-    key: {
-      type: "positional",
-      description: "Array setting key name",
-      required: true,
-    },
-    value: {
-      type: "positional",
-      description: "Item string to add",
-      required: true,
-    },
-    home: {
-      type: "string",
-      description: "Override home directory path",
-    },
-  },
-  async run({ args }) {
-    const home = resolveHomeDirectory(args.home);
-    const current = await readSettingsFile(home);
+  config
+    .command("remove <key> <value>")
+    .description("Remove an item from an array configuration setting")
+    .option("--home <dir>", "Override home directory path")
+    .action(async (key: string, value: string, options: ConfigSubcommandOptions, cmd: Command) => {
+      const mergedOptions = { ...cmd.optsWithGlobals(), ...options };
+      const home = resolveHomeDirectory(mergedOptions.home);
+      const current = await readSettingsFile(home);
 
-    try {
-      const updated = addSettingValue(current, args.key, args.value);
-      await writeSettingsFile(home, updated);
-      writeToStdout(`Added "${args.value}" to "${args.key}".\n`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      writeToStderr(`Failed to add to "${args.key}": ${msg}\n`);
-      process.exit(1);
-    }
-  },
-});
+      try {
+        const updated = removeSettingValue(current, key, value);
+        await writeSettingsFile(home, updated);
+        writeToStdout(`Removed "${value}" from "${key}".\n`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        writeToStderr(`Failed to remove from "${key}": ${msg}\n`);
+        process.exit(1);
+      }
+    });
 
-/**
- * Command for removing an item from an array-based setting.
- */
-export const configRemoveCommand = defineCommand({
-  meta: {
-    name: "remove",
-    description: "Remove an item from an array configuration setting",
-  },
-  args: {
-    key: {
-      type: "positional",
-      description: "Array setting key name",
-      required: true,
-    },
-    value: {
-      type: "positional",
-      description: "Item string to remove",
-      required: true,
-    },
-    home: {
-      type: "string",
-      description: "Override home directory path",
-    },
-  },
-  async run({ args }) {
-    const home = resolveHomeDirectory(args.home);
-    const current = await readSettingsFile(home);
+  config
+    .command("unset <key>")
+    .description("Reset a configuration setting key to its schema default")
+    .option("--home <dir>", "Override home directory path")
+    .action(async (key: string, options: ConfigSubcommandOptions, cmd: Command) => {
+      const mergedOptions = { ...cmd.optsWithGlobals(), ...options };
+      const home = resolveHomeDirectory(mergedOptions.home);
+      const current = await readSettingsFile(home);
 
-    try {
-      const updated = removeSettingValue(current, args.key, args.value);
-      await writeSettingsFile(home, updated);
-      writeToStdout(`Removed "${args.value}" from "${args.key}".\n`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      writeToStderr(`Failed to remove from "${args.key}": ${msg}\n`);
-      process.exit(1);
-    }
-  },
-});
+      try {
+        const updated = unsetSettingValue(current, key);
+        await writeSettingsFile(home, updated);
+        writeToStdout(`Unset "${key}".\n`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        writeToStderr(`Failed to unset "${key}": ${msg}\n`);
+        process.exit(1);
+      }
+    });
 
-/**
- * Command for resetting a configuration setting key back to its default value.
- */
-export const configUnsetCommand = defineCommand({
-  meta: {
-    name: "unset",
-    description: "Reset a configuration setting key to its schema default",
-  },
-  args: {
-    key: {
-      type: "positional",
-      description: "Setting key name to unset",
-      required: true,
-    },
-    home: {
-      type: "string",
-      description: "Override home directory path",
-    },
-  },
-  async run({ args }) {
-    const home = resolveHomeDirectory(args.home);
-    const current = await readSettingsFile(home);
-
-    try {
-      const updated = unsetSettingValue(current, args.key);
-      await writeSettingsFile(home, updated);
-      writeToStdout(`Unset "${args.key}".\n`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      writeToStderr(`Failed to unset "${args.key}": ${msg}\n`);
-      process.exit(1);
-    }
-  },
-});
-
-/**
- * Top-level config command bundling all setting management subcommands.
- */
-export const configCommand = defineCommand({
-  meta: {
-    name: "config",
-    description: "Manage global and workspace configuration settings",
-  },
-  subCommands: {
-    get: configGetCommand,
-    set: configSetCommand,
-    add: configAddCommand,
-    remove: configRemoveCommand,
-    unset: configUnsetCommand,
-  },
-});
+  return config;
+}

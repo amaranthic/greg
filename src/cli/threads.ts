@@ -3,135 +3,123 @@
  * @packageDocumentation
  */
 
-import { defineCommand } from "citty";
+import { Command } from "commander";
 import { FileThreadStore } from "@amaranthic/hernex";
 import { resolveHomeDirectory } from "../settings/index.js";
 import { writeToStderr, writeToStdout } from "../utils/index.js";
 
 /**
- * Command for listing stored thread sessions.
+ * Options common to thread subcommands.
  */
-export const threadsListCommand = defineCommand({
-  meta: {
-    name: "list",
-    description: "List persisted conversation threads",
-  },
-  args: {
-    home: {
-      type: "string",
-      description: "Override home directory path",
-    },
-    limit: {
-      type: "string",
-      description: "Maximum number of threads to list",
-      default: "20",
-    },
-  },
-  async run({ args }) {
-    const home = resolveHomeDirectory(args.home);
-    const store = new FileThreadStore({ homeDirectory: home });
-    const limit = parseInt(args.limit, 10);
+export interface ThreadSubcommandOptions {
+  /** Optional home directory override. */
+  readonly home?: string | undefined;
+  /** Maximum number of threads to list. */
+  readonly limit?: string | undefined;
+}
 
-    const threads = await store.listThreads({
-      workingDirectory: process.cwd(),
-      limit: Number.isFinite(limit) ? limit : 20,
+/**
+ * Creates the commander Command for the `threads` subcommand tree.
+ *
+ * @returns Fully configured commander Command instance for `threads`.
+ *
+ * @example
+ * ```typescript
+ * const threadsCmd = createThreadsCommand();
+ * program.addCommand(threadsCmd);
+ * ```
+ */
+export function createThreadsCommand(): Command {
+  const threads = new Command("threads").description(
+    "Manage persistent conversation threads and session transcripts",
+  );
+
+  threads
+    .command("list")
+    .description("List persisted conversation threads")
+    .option("--home <dir>", "Override home directory path")
+    .option("-n, --limit <number>", "Maximum number of threads to list", "20")
+    .action(async (options: ThreadSubcommandOptions, cmd: Command) => {
+      const mergedOptions = { ...cmd.optsWithGlobals(), ...options };
+      const home = resolveHomeDirectory(mergedOptions.home);
+      const store = new FileThreadStore({ homeDirectory: home });
+      const parsedLimit = mergedOptions.limit ? parseInt(mergedOptions.limit, 10) : 20;
+
+      try {
+        const threadList = await store.listThreads({
+          workingDirectory: process.cwd(),
+          limit: Number.isFinite(parsedLimit) ? parsedLimit : 20,
+        });
+
+        if (threadList.length === 0) {
+          writeToStdout("No active threads found for this workspace.\n");
+          return;
+        }
+
+        const payload = threadList.map((t) => ({
+          id: t.id,
+          title: t.title ?? "(untitled)",
+          turnCount: t.turnCount,
+          model: t.model ?? "unknown",
+          status: t.status,
+          updatedAt: t.updatedAt,
+        }));
+
+        writeToStdout(JSON.stringify(payload, null, 2) + "\n");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        writeToStderr(`Failed to list threads: ${msg}\n`);
+        process.exit(1);
+      }
     });
 
-    if (threads.length === 0) {
-      writeToStdout("No active threads found for this workspace.\n");
-      return;
-    }
+  threads
+    .command("show <id>")
+    .description("Display metadata and status for a specific thread")
+    .option("--home <dir>", "Override home directory path")
+    .action(async (id: string, options: ThreadSubcommandOptions, cmd: Command) => {
+      const mergedOptions = { ...cmd.optsWithGlobals(), ...options };
+      const home = resolveHomeDirectory(mergedOptions.home);
+      const store = new FileThreadStore({ homeDirectory: home });
 
-    const payload = threads.map((t) => ({
-      id: t.id,
-      title: t.title ?? "(untitled)",
-      turnCount: t.turnCount,
-      model: t.model ?? "unknown",
-      status: t.status,
-      updatedAt: t.updatedAt,
-    }));
+      try {
+        const metadata = await store.getThread(id);
+        if (!metadata) {
+          writeToStderr(`Thread "${id}" not found.\n`);
+          process.exit(1);
+        }
 
-    writeToStdout(JSON.stringify(payload, null, 2) + "\n");
-  },
-});
+        writeToStdout(JSON.stringify(metadata, null, 2) + "\n");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        writeToStderr(`Failed to inspect thread "${id}": ${msg}\n`);
+        process.exit(1);
+      }
+    });
 
-/**
- * Command for displaying detailed metadata for a single thread.
- */
-export const threadsShowCommand = defineCommand({
-  meta: {
-    name: "show",
-    description: "Display metadata and status for a specific thread",
-  },
-  args: {
-    id: {
-      type: "positional",
-      description: "Safe thread identifier",
-      required: true,
-    },
-    home: {
-      type: "string",
-      description: "Override home directory path",
-    },
-  },
-  async run({ args }) {
-    const home = resolveHomeDirectory(args.home);
-    const store = new FileThreadStore({ homeDirectory: home });
+  threads
+    .command("delete <id>")
+    .description("Delete a conversation thread session")
+    .option("--home <dir>", "Override home directory path")
+    .action(async (id: string, options: ThreadSubcommandOptions, cmd: Command) => {
+      const mergedOptions = { ...cmd.optsWithGlobals(), ...options };
+      const home = resolveHomeDirectory(mergedOptions.home);
+      const store = new FileThreadStore({ homeDirectory: home });
 
-    const metadata = await store.getThread(args.id);
-    if (!metadata) {
-      writeToStderr(`Thread "${args.id}" not found.\n`);
-      process.exit(1);
-    }
+      try {
+        const removed = await store.deleteThread(id);
+        if (removed) {
+          writeToStdout(`Deleted thread "${id}".\n`);
+        } else {
+          writeToStderr(`Thread "${id}" not found.\n`);
+          process.exit(1);
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        writeToStderr(`Failed to delete thread "${id}": ${msg}\n`);
+        process.exit(1);
+      }
+    });
 
-    writeToStdout(JSON.stringify(metadata, null, 2) + "\n");
-  },
-});
-
-/**
- * Command for deleting a thread session and its associated persistent artifacts.
- */
-export const threadsDeleteCommand = defineCommand({
-  meta: {
-    name: "delete",
-    description: "Delete a conversation thread session",
-  },
-  args: {
-    id: {
-      type: "positional",
-      description: "Safe thread identifier to delete",
-      required: true,
-    },
-    home: {
-      type: "string",
-      description: "Override home directory path",
-    },
-  },
-  async run({ args }) {
-    const home = resolveHomeDirectory(args.home);
-    const store = new FileThreadStore({ homeDirectory: home });
-
-    const removed = await store.deleteThread(args.id);
-    if (removed) {
-      writeToStdout(`Deleted thread "${args.id}".\n`);
-    } else {
-      writeToStderr(`Thread "${args.id}" not found.\n`);
-      process.exit(1);
-    }
-  },
-});
-
-/**
- * Top-level threads command bundling all session management operations.
- */
-export const threadsCommand = defineCommand({
-  meta: {
-    name: "threads",
-    description: "Manage persistent conversation threads and session transcripts",
-  },
-  subCommands: {
-    list: threadsListCommand,
-    show: threadsShowCommand,
-    delete: threadsDeleteCommand,
-  },
-});
+  return threads;
+}

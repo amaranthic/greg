@@ -129,4 +129,97 @@ describe("Greg CLI End-to-End Execution", () => {
       await rm(tempHome, { recursive: true, force: true });
     }
   });
+
+  it("accepts positional prompt and dispatches to engine", async () => {
+    const proc = Bun.spawn(
+      [
+        "bun",
+        cliEntry,
+        "ping test",
+        "--timeout",
+        "10ms",
+        "--bare",
+        "--noSessionPersistence",
+        "-o",
+        "json",
+        "-m",
+        "compatible/dummy",
+      ],
+      {
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+
+    const output = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+
+    expect(exitCode).toBe(4);
+    const parsed = JSON.parse(output);
+    expect(parsed).toHaveProperty("exitCode", 4);
+  });
+
+  it("accepts inline prompt via -p flag and dispatches to engine", async () => {
+    const proc = Bun.spawn(
+      [
+        "bun",
+        cliEntry,
+        "-p",
+        "ping test",
+        "--timeout",
+        "10ms",
+        "--bare",
+        "--noSessionPersistence",
+        "-o",
+        "json",
+        "-m",
+        "compatible/dummy",
+      ],
+      {
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+
+    const output = await new Response(proc.stdout).text();
+    const exitCode = await proc.exited;
+
+    expect(exitCode).toBe(4);
+    const parsed = JSON.parse(output);
+    expect(parsed).toHaveProperty("exitCode", 4);
+  });
+
+  it("rejects unknown setting key on config set with exit code 1", async () => {
+    const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-cfg-err-"));
+    try {
+      const proc = Bun.spawn(
+        ["bun", cliEntry, "config", "set", "invalid_key", "value", "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const stderr = await new Response(proc.stderr).text();
+      const exitCode = await proc.exited;
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain('Unrecognized configuration key: "invalid_key"');
+    } finally {
+      await rm(tempHome, { recursive: true, force: true });
+    }
+  });
+
+  it("handles invalid thread ID cleanly without crashing with a raw stack trace", async () => {
+    const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-thread-err-"));
+    try {
+      const proc = Bun.spawn(
+        ["bun", cliEntry, "threads", "show", "../../../etc/passwd", "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const stderr = await new Response(proc.stderr).text();
+      const exitCode = await proc.exited;
+
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Invalid thread identifier");
+    } finally {
+      await rm(tempHome, { recursive: true, force: true });
+    }
+  });
 });

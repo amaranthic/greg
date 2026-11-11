@@ -76,6 +76,7 @@ export class JsonSink implements OutputSink {
 
   public constructor(options: OutputSinkOptions) {
     this.options = options;
+    installStreamJsonStdoutGuard();
   }
 
   public emitInit(): void {
@@ -96,6 +97,8 @@ export class JsonSink implements OutputSink {
   }
 
   public async finish(exitCode: number): Promise<void> {
+    restoreStdoutGuard();
+
     const payload = {
       result: this.accumulatedText,
       threadId: this.options.threadId,

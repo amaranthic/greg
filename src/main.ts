@@ -4,143 +4,124 @@
  * @packageDocumentation
  */
 
-import { defineCommand, runMain } from "citty";
+import { Command } from "commander";
 import {
-  checkpointsCommand,
-  configCommand,
+  createCheckpointsCommand,
+  createConfigCommand,
+  createThreadsCommand,
   executeRunAction,
-  threadsCommand,
+  type RunCommandArgs,
 } from "./cli/index.js";
 import { gregVersion } from "./constants/index.js";
 
 /**
- * The root Greg command definition.
+ * Normalizes command line arguments to seamlessly accept both kebab-case and camelCase flags.
+ *
+ * @param argv - Raw argument vector.
+ * @returns Normalized argument vector.
  */
-export const mainCommand = defineCommand({
-  meta: {
-    name: "greg",
-    version: gregVersion,
-    description: "The post-modern autonomous print agent powered by Hernex",
-  },
-  args: {
-    prompt: {
-      type: "positional",
-      description: "Instruction prompt for the agent (reads from piped stdin if omitted)",
-      required: false,
-    },
-    print: {
-      type: "boolean",
-      alias: "p",
-      description: "Run in print mode (default behavior for prompt or piped input)",
-    },
-    outputFormat: {
-      type: "string",
-      alias: "o",
-      description: "Output format: text | json | stream-json",
-      default: "text",
-    },
-    model: {
-      type: "string",
-      alias: "m",
-      description: "Model override (e.g. anthropic/claude-3-7-sonnet, compatible/dummy)",
-    },
-    effort: {
-      type: "string",
-      alias: "e",
-      description: "Reasoning effort level: none | minimal | low | medium | high | xhigh | max",
-    },
-    maxTurns: {
-      type: "string",
-      alias: "s",
-      description: "Maximum turn loop steps before stopping (default: 50)",
-    },
-    timeout: {
-      type: "string",
-      alias: "t",
-      description: "Wall-clock timeout e.g. 30m, 10s (default: 30m)",
-    },
-    systemPrompt: {
-      type: "string",
-      description: "Override default system prompt instructions",
-    },
-    appendSystemPrompt: {
-      type: "string",
-      description: "Append instructions to the system prompt",
-    },
-    permissionMode: {
-      type: "string",
-      description: "Permission mode: default | acceptEdits | plan | bypassPermissions",
-    },
-    allowedTools: {
-      type: "string",
-      description: "Tool rules to allow without prompting (e.g. 'Bash(git *)')",
-    },
-    disallowedTools: {
-      type: "string",
-      description: "Tool rules to deny (always takes precedence over allows)",
-    },
-    tools: {
-      type: "string",
-      description:
-        "Filter exposed tools catalogue (e.g. 'default', 'readFile,writeFile', '' for none)",
-    },
-    dangerouslySkipPermissions: {
-      type: "boolean",
-      description: "Bypass all tool permission checks",
-    },
-    continue: {
-      type: "boolean",
-      alias: "c",
-      description: "Continue the latest conversation thread in the workspace",
-    },
-    resume: {
-      type: "string",
-      alias: "r",
-      description: "Resume a specific conversation thread by ID",
-    },
-    resumeSessionAt: {
-      type: "string",
-      description: "Branch conversation at a specific transcript sequence index",
-    },
-    noSessionPersistence: {
-      type: "boolean",
-      description: "Run ephemerally without persisting history or snapshots",
-    },
-    home: {
-      type: "string",
-      description: "Override state storage and configuration home directory",
-    },
-    bare: {
-      type: "boolean",
-      description: "Suppress loading persistent settings files",
-    },
-    verbose: {
-      type: "boolean",
-      description: "Emit diagnostic tool activity and status to stderr",
-    },
-    apiKey: {
-      type: "string",
-      description: "Explicit provider API key override",
-    },
-    baseUrl: {
-      type: "string",
-      description: "Explicit provider base URL override",
-    },
-  },
-  subCommands: {
-    config: configCommand,
-    threads: threadsCommand,
-    checkpoints: checkpointsCommand,
-  },
-  async run({ rawArgs, args }) {
-    const knownSubCommands = ["config", "threads", "checkpoints"];
-    const isSubCommand = rawArgs.some((arg) => knownSubCommands.includes(arg));
-    if (isSubCommand) {
-      return;
+export function normalizeArgv(argv: readonly string[]): string[] {
+  let isDoubleDash = false;
+  return argv.map((arg) => {
+    if (arg === "--") {
+      isDoubleDash = true;
+      return arg;
     }
-    await executeRunAction(args);
-  },
-});
+    if (isDoubleDash || !arg.startsWith("--") || arg.startsWith("---")) {
+      return arg;
+    }
+    const eqIdx = arg.indexOf("=");
+    if (eqIdx !== -1) {
+      const flag = arg.slice(2, eqIdx);
+      const val = arg.slice(eqIdx);
+      const camel = flag.replace(/-([a-z0-9])/gi, (_, c: string) => c.toUpperCase());
+      return `--${camel}${val}`;
+    }
+    const flag = arg.slice(2);
+    const camel = flag.replace(/-([a-z0-9])/gi, (_, c: string) => c.toUpperCase());
+    return `--${camel}`;
+  });
+}
 
-// Run if called as primary module
-runMain(mainCommand);
+/**
+ * Creates and constructs the authoritative Greg CLI program.
+ *
+ * @returns Root commander Command instance.
+ *
+ * @example
+ * ```typescript
+ * const program = createProgram();
+ * await program.parseAsync(process.argv);
+ * ```
+ */
+export function createProgram(): Command {
+  const program = new Command();
+
+  program
+    .name("greg")
+    .version(gregVersion, "-v, --version", "Display version information")
+    .description("The post-modern autonomous print agent powered by Hernex")
+    .argument("[prompt]", "Instruction prompt for the agent (reads from piped stdin if omitted)")
+    .option(
+      "-p, --print [prompt]",
+      "Run in print mode (default behavior for prompt or piped input)",
+    )
+    .option("-o, --outputFormat <format>", "Output format: text | json | stream-json", "text")
+    .option(
+      "-m, --model <model>",
+      "Model override (e.g. anthropic/claude-3-7-sonnet, compatible/dummy)",
+    )
+    .option(
+      "-e, --effort <effort>",
+      "Reasoning effort level: none | minimal | low | medium | high | xhigh | max",
+    )
+    .option("-s, --maxTurns <number>", "Maximum turn loop steps before stopping")
+    .option("-t, --timeout <timeout>", "Wall-clock timeout e.g. 30m, 10s")
+    .option("--systemPrompt <prompt>", "Override default system prompt instructions")
+    .option("--appendSystemPrompt <prompt>", "Append instructions to the system prompt")
+    .option(
+      "--permissionMode <mode>",
+      "Permission mode: default | acceptEdits | plan | bypassPermissions",
+    )
+    .option("--allowedTools <rules>", "Tool rules to allow without prompting (e.g. 'Bash(git *)')")
+    .option("--disallowedTools <rules>", "Tool rules to deny (always takes precedence over allows)")
+    .option(
+      "--tools <tools>",
+      "Filter exposed tools catalogue (e.g. 'default', 'readFile,writeFile', '' for none)",
+    )
+    .option("--dangerouslySkipPermissions", "Bypass all tool permission checks")
+    .option("-c, --continue", "Continue the latest conversation thread in the workspace")
+    .option("-r, --resume <id>", "Resume a specific conversation thread by ID")
+    .option(
+      "--resumeSessionAt <index>",
+      "Branch conversation at a specific transcript sequence index",
+    )
+    .option("--noSessionPersistence", "Run ephemerally without persisting history or snapshots")
+    .option("--home <dir>", "Override state storage and configuration home directory")
+    .option("--bare", "Suppress loading persistent settings files")
+    .option("--verbose", "Emit diagnostic tool activity and status to stderr")
+    .option("--apiKey <key>", "Explicit provider API key override")
+    .option("--baseUrl <url>", "Explicit provider base URL override")
+    .action(async (promptArgument?: string, options: Record<string, unknown> = {}) => {
+      const effectivePrompt =
+        promptArgument ?? (typeof options.print === "string" ? options.print : undefined);
+
+      const runArgs: RunCommandArgs = {
+        ...options,
+        prompt: effectivePrompt,
+      };
+
+      await executeRunAction(runArgs);
+    });
+
+  // Attach subcommands
+  program.addCommand(createConfigCommand());
+  program.addCommand(createThreadsCommand());
+  program.addCommand(createCheckpointsCommand());
+
+  return program;
+}
+
+// Execute CLI
+const program = createProgram();
+await program.parseAsync(normalizeArgv(process.argv));

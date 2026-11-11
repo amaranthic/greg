@@ -116,6 +116,10 @@ export function getSettingValue(settings: Settings, key: string): unknown {
  * ```
  */
 export function setSettingValue(settings: Settings, key: string, rawValue: string): Settings {
+  if (!(key in settingsSchema.shape)) {
+    throw new Error(`Unrecognized configuration key: "${key}"`);
+  }
+
   let parsedValue: unknown = rawValue;
 
   try {
@@ -147,6 +151,9 @@ export function setSettingValue(settings: Settings, key: string, rawValue: strin
  * ```
  */
 export function addSettingValue(settings: Settings, key: string, item: string): Settings {
+  if (!(key in settingsSchema.shape)) {
+    throw new Error(`Unrecognized configuration key: "${key}"`);
+  }
   const existing = (settings as Record<string, unknown>)[key];
 
   if (!Array.isArray(existing)) {
@@ -180,6 +187,9 @@ export function addSettingValue(settings: Settings, key: string, item: string): 
  * ```
  */
 export function removeSettingValue(settings: Settings, key: string, item: string): Settings {
+  if (!(key in settingsSchema.shape)) {
+    throw new Error(`Unrecognized configuration key: "${key}"`);
+  }
   const existing = (settings as Record<string, unknown>)[key];
 
   if (!Array.isArray(existing)) {
@@ -207,6 +217,9 @@ export function removeSettingValue(settings: Settings, key: string, item: string
  * ```
  */
 export function unsetSettingValue(settings: Settings, key: string): Settings {
+  if (!(key in settingsSchema.shape)) {
+    throw new Error(`Unrecognized configuration key: "${key}"`);
+  }
   const candidate: Record<string, unknown> = { ...settings };
   delete candidate[key];
 
