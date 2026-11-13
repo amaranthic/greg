@@ -95,3 +95,31 @@ export function formatBytes(bytes: number): string {
   const mib = kib / 1024;
   return `${mib.toFixed(1)} MiB`;
 }
+
+/**
+ * Normalizes text into a clean single-line title constrained to a maximum character length.
+ * Collapses internal whitespace, newlines, and tabs into a single space, trims, and truncates.
+ *
+ * @param text - Raw prompt or input string to normalize.
+ * @param maxLength - Maximum permitted character count (defaults to 80).
+ * @returns Clean single-line title string, or undefined if text contains no non-whitespace characters.
+ *
+ * @example
+ * ```typescript
+ * normalizeThreadTitle("Review this patch\nfor regressions");
+ * // => "Review this patch for regressions"
+ * ```
+ */
+export function normalizeThreadTitle(
+  text?: string | undefined,
+  maxLength: number = 80,
+): string | undefined {
+  if (!text) {
+    return undefined;
+  }
+  const flattened = text.replace(/\s+/g, " ").trim();
+  if (flattened.length === 0) {
+    return undefined;
+  }
+  return flattened.length > maxLength ? flattened.slice(0, maxLength) : flattened;
+}

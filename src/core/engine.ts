@@ -28,6 +28,8 @@ import { SignalLifecycle } from "./signals.js";
 export interface ExecutionOptions {
   /** The instruction prompt to execute. */
   readonly prompt: string;
+  /** Optional human-readable title for the persistent thread. */
+  readonly title?: string | undefined;
   /** Resolved system configuration. */
   readonly configuration: ResolvedConfiguration;
   /** Chosen output format for standard output. */
@@ -111,6 +113,7 @@ export async function executePrintRun(
   if (isNewThread && threadStore) {
     await threadStore.createThread({
       id: targetThreadId,
+      ...(options.title ? { title: options.title } : {}),
       workingDirectory,
       model: configuration.model,
       ...(configuration.settings.effort

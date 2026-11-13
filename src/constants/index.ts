@@ -66,3 +66,13 @@ export const defaultTimeoutDuration = "30m";
  * Default agent turn loop maximum turn count.
  */
 export const defaultMaxTurns = 50;
+
+/**
+ * Default sample prompt instruction prepended when input is provided strictly via stdin without an explicit user prompt.
+ */
+export const defaultStdinPrompt = "Process and respond to the following input:";
+
+/**
+ * Maximum character length for derived thread titles.
+ */
+export const maxThreadTitleLength = 80;

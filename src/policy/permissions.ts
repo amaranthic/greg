@@ -66,9 +66,19 @@ export function extractToolTarget(
     normalizedName === "writefile" ||
     normalizedName === "editfile"
   ) {
-    if (typeof params.path === "string") {
-      const resolved = path.resolve(workingDirectory, params.path);
+    const rawPath =
+      typeof params.filePath === "string"
+        ? params.filePath
+        : typeof params.path === "string"
+          ? params.path
+          : undefined;
+
+    if (rawPath) {
+      const resolved = path.resolve(workingDirectory, rawPath);
       const relative = path.relative(workingDirectory, resolved);
+      if (relative.startsWith("..") || path.isAbsolute(relative)) {
+        return resolved.replace(/\\/g, "/");
+      }
       return relative.replace(/\\/g, "/");
     }
     return "*";
@@ -76,6 +86,14 @@ export function extractToolTarget(
 
   if (normalizedName === "glob" || normalizedName === "grep") {
     return typeof params.pattern === "string" ? params.pattern : "*";
+  }
+
+  if (normalizedName === "webfetch") {
+    return typeof params.url === "string" ? params.url : "*";
+  }
+
+  if (normalizedName === "websearch") {
+    return typeof params.query === "string" ? params.query : "*";
   }
 
   return "*";
@@ -89,7 +107,13 @@ export function extractToolTarget(
  */
 export function isReadOnlyTool(toolName: string): boolean {
   const normalized = toolName.toLowerCase();
-  return normalized === "readfile" || normalized === "glob" || normalized === "grep";
+  return (
+    normalized === "readfile" ||
+    normalized === "glob" ||
+    normalized === "grep" ||
+    normalized === "webfetch" ||
+    normalized === "websearch"
+  );
 }
 
 /**

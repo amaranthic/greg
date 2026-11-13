@@ -3,11 +3,11 @@
  * @packageDocumentation
  */
 
-import { executePrintRun } from "../core/index.js";
-import { readPipedStdin } from "../core/index.js";
+import { defaultStdinPrompt, maxThreadTitleLength } from "../constants/index.js";
+import { executePrintRun, readPipedStdin } from "../core/index.js";
 import type { OutputFormat } from "../output/index.js";
 import { resolveEffectiveConfiguration, type CliOverrideOptions } from "../settings/index.js";
-import { writeToStderr } from "../utils/index.js";
+import { normalizeThreadTitle, writeToStderr } from "../utils/index.js";
 
 /**
  * Parsed CLI arguments passed from the root command dispatcher.
@@ -45,38 +45,59 @@ export interface RunCommandArgs {
  * @returns Promise resolving when execution finishes.
  */
 export async function executeRunAction(args: RunCommandArgs): Promise<void> {
-  let effectivePrompt = args.prompt?.trim();
+  let userPrompt = args.prompt?.trim();
 
   // If -p was passed with an inline prompt string, take it
   if (
-    (!effectivePrompt || effectivePrompt.length === 0) &&
+    (!userPrompt || userPrompt.length === 0) &&
     typeof args.print === "string" &&
     args.print.trim().length > 0
   ) {
-    effectivePrompt = args.print.trim();
+    userPrompt = args.print.trim();
   }
 
-  // If no positional prompt was provided, attempt reading from piped stdin
-  if (!effectivePrompt || effectivePrompt.length === 0) {
-    try {
-      const piped = await readPipedStdin();
-      if (piped && piped.trim().length > 0) {
-        effectivePrompt = piped.trim();
-      }
-    } catch (stdinErr) {
-      writeToStderr(`Error reading stdin: ${(stdinErr as Error).message}\n`);
-      process.exit(1);
+  // Attempt reading piped stdin if available
+  let pipedStdin: string | undefined;
+  try {
+    pipedStdin = await readPipedStdin();
+    if (pipedStdin) {
+      pipedStdin = pipedStdin.trim();
     }
+  } catch (stdinErr) {
+    writeToStderr(`Error reading stdin: ${(stdinErr as Error).message}\n`);
+    process.exit(1);
   }
 
-  if (!effectivePrompt || effectivePrompt.length === 0) {
+  const hasUserPrompt = typeof userPrompt === "string" && userPrompt.length > 0;
+  const hasPipedStdin = typeof pipedStdin === "string" && pipedStdin.length > 0;
+
+  if (!hasUserPrompt && !hasPipedStdin) {
     writeToStderr(
       "Error: Input must be provided either as a prompt argument or through piped stdin.\n",
     );
     process.exit(1);
   }
 
-  // Parse list arguments
+  let effectivePrompt: string;
+  let rawTitleSource: string;
+
+  if (hasUserPrompt && hasPipedStdin) {
+    // Both user prompt and stdin: prompt directive on top, stdin delineated below. Title is user prompt.
+    effectivePrompt = `${userPrompt}\n\n---\nStandard Input:\n${pipedStdin}`;
+    rawTitleSource = userPrompt!;
+  } else if (hasUserPrompt) {
+    // Only user prompt
+    effectivePrompt = userPrompt!;
+    rawTitleSource = userPrompt!;
+  } else {
+    // Only stdin: sample prompt prepended, but title derived from normalized stdin text
+    effectivePrompt = `${defaultStdinPrompt}\n\n---\nStandard Input:\n${pipedStdin}`;
+    rawTitleSource = pipedStdin!;
+  }
+
+  const derivedTitle = normalizeThreadTitle(rawTitleSource, maxThreadTitleLength);
+
+  // Parse comma-separated list arguments respecting tool parentheses e.g. "Bash(ls *), writeFile(src/*)"
   const parseList = (val?: string | string[]): string[] | undefined => {
     if (!val) {
       return undefined;
@@ -84,10 +105,35 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     if (Array.isArray(val)) {
       return val;
     }
-    return val
-      .split(/[,\s]+/)
-      .map((t) => t.trim())
-      .filter((t) => t.length > 0);
+    const items: string[] = [];
+    let current = "";
+    let depth = 0;
+
+    for (let i = 0; i < val.length; i++) {
+      const char = val[i];
+      if (char === "(") {
+        depth++;
+        current += char;
+      } else if (char === ")") {
+        depth = Math.max(0, depth - 1);
+        current += char;
+      } else if (char === "," && depth === 0) {
+        const trimmed = current.trim();
+        if (trimmed.length > 0) {
+          items.push(trimmed);
+        }
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+
+    const trailing = current.trim();
+    if (trailing.length > 0) {
+      items.push(trailing);
+    }
+
+    return items;
   };
 
   const parsedMaxTurns = args.maxTurns ? parseInt(args.maxTurns, 10) : undefined;
@@ -125,6 +171,7 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
 
   const exitCode = await executePrintRun({
     prompt: effectivePrompt,
+    title: derivedTitle,
     configuration: resolvedConfig,
     outputFormat,
     resumeThreadId: args.resume,

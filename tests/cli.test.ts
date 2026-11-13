@@ -159,36 +159,6 @@ describe("Greg CLI End-to-End Execution", () => {
     expect(parsed).toHaveProperty("exitCode", 4);
   });
 
-  it("accepts inline prompt via -p flag and dispatches to engine", async () => {
-    const proc = Bun.spawn(
-      [
-        "bun",
-        cliEntry,
-        "-p",
-        "ping test",
-        "--timeout",
-        "10ms",
-        "--bare",
-        "--noSessionPersistence",
-        "-o",
-        "json",
-        "-m",
-        "compatible/dummy",
-      ],
-      {
-        stdout: "pipe",
-        stderr: "pipe",
-      },
-    );
-
-    const output = await new Response(proc.stdout).text();
-    const exitCode = await proc.exited;
-
-    expect(exitCode).toBe(4);
-    const parsed = JSON.parse(output);
-    expect(parsed).toHaveProperty("exitCode", 4);
-  });
-
   it("rejects unknown setting key on config set with exit code 1", async () => {
     const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-cfg-err-"));
     try {

@@ -25,7 +25,7 @@
     "build": "bun build --compile --no-env-file src/main.ts --outfile=greg"
   },
   "dependencies": {
-    "@amaranthic/hernex": "0.2.0",
+    "@amaranthic/hernex": "0.5.0",
     "commander": "15.1.0",
     "zod": "4.6.7"
   },

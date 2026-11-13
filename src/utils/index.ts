@@ -3,6 +3,6 @@
  * @packageDocumentation
  */
 
-export { parseDurationMs, formatDuration, formatBytes } from "./format.js";
+export { parseDurationMs, formatDuration, formatBytes, normalizeThreadTitle } from "./format.js";
 
 export { writeToStdout, writeToStderr, gracefulExit } from "./process.js";

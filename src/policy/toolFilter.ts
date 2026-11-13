@@ -14,10 +14,18 @@ export const allBuiltInToolNames: readonly string[] = [
   "grep",
   "bash",
   "taskManager",
+  "webFetch",
+  "webSearch",
 ];
 
 /** Read-only tools exposed during plan mode reconnaissance. */
-export const planModeToolNames: readonly string[] = ["readFile", "glob", "grep"];
+export const planModeToolNames: readonly string[] = [
+  "readFile",
+  "glob",
+  "grep",
+  "webFetch",
+  "webSearch",
+];
 
 /**
  * Filters the active tool catalogue based on CLI filter flags and permission mode.

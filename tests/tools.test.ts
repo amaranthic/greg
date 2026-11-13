@@ -39,6 +39,8 @@ describe("Tool Catalogue Exposure & Fail-Closed Filtering", () => {
     expect(planTools.has("readFile")).toBe(true);
     expect(planTools.has("glob")).toBe(true);
     expect(planTools.has("grep")).toBe(true);
+    expect(planTools.has("webFetch")).toBe(true);
+    expect(planTools.has("webSearch")).toBe(true);
     expect(planTools.has("writeFile")).toBe(false);
     expect(planTools.has("bash")).toBe(false);
   });

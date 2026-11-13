@@ -4,7 +4,12 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { formatBytes, formatDuration, parseDurationMs } from "../src/utils/index.js";
+import {
+  formatBytes,
+  formatDuration,
+  normalizeThreadTitle,
+  parseDurationMs,
+} from "../src/utils/index.js";
 import { readPipedStdin, SignalLifecycle } from "../src/core/index.js";
 
 describe("Formatting & Utility Parsers", () => {
@@ -26,6 +31,20 @@ describe("Formatting & Utility Parsers", () => {
     expect(formatBytes(512)).toBe("512 B");
     expect(formatBytes(2048)).toBe("2.0 KiB");
     expect(formatBytes(1048576 * 3.5)).toBe("3.5 MiB");
+  });
+
+  it("normalizes thread titles correctly", () => {
+    expect(normalizeThreadTitle(undefined)).toBeUndefined();
+    expect(normalizeThreadTitle("   ")).toBeUndefined();
+    expect(normalizeThreadTitle("Review\nthis   patch\t\tfor bugs")).toBe(
+      "Review this patch for bugs",
+    );
+
+    const longText = "a".repeat(120);
+    const normalizedLong = normalizeThreadTitle(longText);
+    expect(normalizedLong).toBeDefined();
+    expect(normalizedLong?.length).toBe(80);
+    expect(normalizedLong).toBe("a".repeat(80));
   });
 });
 
