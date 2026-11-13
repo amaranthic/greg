@@ -21,4 +21,12 @@ export {
   type ToolPermissionDecision,
 } from "./permissions.js";
 
-export { allBuiltInToolNames, planModeToolNames, resolveExposedTools } from "./toolFilter.js";
+export {
+  userFacingToolNames,
+  type UserFacingToolName,
+  allBuiltInToolNames,
+  planModeToolNames,
+  toHernexToolName,
+  toUserFacingToolName,
+  resolveExposedTools,
+} from "./toolFilter.js";

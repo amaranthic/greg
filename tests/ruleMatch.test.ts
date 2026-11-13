@@ -45,21 +45,30 @@ describe("Wildcard Pattern Matching Engine", () => {
 });
 
 describe("Tool Rule Parsing & Matching", () => {
-  it("parses scoped tool rules and bare tool names", () => {
+  it("parses scoped tool rules and bare tool names in canonical PascalCase format", () => {
     const scoped = parseToolRule("Bash(bun test *)");
-    expect(scoped.toolName).toBe("bash");
+    expect(scoped.toolName).toBe("Bash");
     expect(scoped.pattern).toBe("bun test *");
 
-    const bare = parseToolRule("ReadFile");
-    expect(bare.toolName).toBe("readfile");
+    const bare = parseToolRule("Read");
+    expect(bare.toolName).toBe("Read");
     expect(bare.pattern).toBe("*");
+  });
+
+  it("rejects TaskManager or unapproved formats in rule strings", () => {
+    expect(() => parseToolRule("TaskManager")).toThrow();
+    expect(() => parseToolRule("TaskManager(*)")).toThrow();
+    expect(() => parseToolRule("readFile")).toThrow();
+    expect(() => parseToolRule("writeFile(src/*)")).toThrow();
+    expect(() => parseToolRule("customTool")).toThrow();
   });
 
   it("matches tool rules against execution targets", () => {
     expect(matchesToolRule("Bash(git *)", "bash", "git log -n 5")).toBe(true);
     expect(matchesToolRule("Bash(git *)", "bash", "git")).toBe(true);
     expect(matchesToolRule("Bash(git *)", "bash", "rm -rf /")).toBe(false);
-    expect(matchesToolRule("writeFile(src/*)", "writeFile", "src/index.ts")).toBe(true);
-    expect(matchesToolRule("writeFile(src/*)", "readFile", "src/index.ts")).toBe(false);
+    expect(matchesToolRule("Write(src/*)", "writeFile", "src/index.ts")).toBe(true);
+    expect(matchesToolRule("Write(src/*)", "readFile", "src/index.ts")).toBe(false);
+    expect(matchesToolRule("Read(src/*)", "readFile", "src/index.ts")).toBe(true);
   });
 });

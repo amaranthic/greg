@@ -5,7 +5,8 @@
 
 import path from "node:path";
 import type { PermissionMode } from "../settings/index.js";
-import { matchesToolRule } from "./ruleMatch.js";
+import { matchesToolRule, parseToolRule } from "./ruleMatch.js";
+import { toUserFacingToolName } from "./toolFilter.js";
 
 /**
  * Context payload provided to the authorization hook before tool execution.
@@ -62,8 +63,11 @@ export function extractToolTarget(
   }
 
   if (
+    normalizedName === "read" ||
     normalizedName === "readfile" ||
+    normalizedName === "write" ||
     normalizedName === "writefile" ||
+    normalizedName === "edit" ||
     normalizedName === "editfile"
   ) {
     const rawPath =
@@ -108,6 +112,7 @@ export function extractToolTarget(
 export function isReadOnlyTool(toolName: string): boolean {
   const normalized = toolName.toLowerCase();
   return (
+    normalized === "read" ||
     normalized === "readfile" ||
     normalized === "glob" ||
     normalized === "grep" ||
@@ -124,20 +129,23 @@ export function isReadOnlyTool(toolName: string): boolean {
  */
 export function isFileMutationTool(toolName: string): boolean {
   const normalized = toolName.toLowerCase();
-  return normalized === "writefile" || normalized === "editfile";
+  return (
+    normalized === "write" ||
+    normalized === "writefile" ||
+    normalized === "edit" ||
+    normalized === "editfile"
+  );
 }
 
 /**
  * Evaluates whether a proposed tool execution is permitted under current policy options.
  * Enforces strict precedence:
  * 1. Disallowed rules evaluate first and override all allows and bypass flags.
- * 2. Bypass mode / skip permissions flag.
- * 3. Allowed rules.
- * 4. Permission mode defaults.
- * 5. Actionable fail-closed rejection.
- *
- * Special Invariant:
- * TaskManagerTool is coupled to BashTool — it is allowed if and only if Bash is allowed.
+ * 2. TaskManager coupling to BashTool.
+ * 3. Bypass mode / skip permissions flag.
+ * 4. Allowed rules (with scoped allow-rule strict enforcement).
+ * 5. Permission mode defaults.
+ * 6. Actionable fail-closed rejection.
  *
  * @param context - The tool invocation context.
  * @param options - Configured policy rules and permission mode.
@@ -158,10 +166,11 @@ export function evaluateToolPermission(
 ): ToolPermissionDecision {
   const normalizedToolName = context.toolName.toLowerCase();
   const target = extractToolTarget(context.toolName, context.parameters, context.workingDirectory);
+  const userToolName = toUserFacingToolName(context.toolName);
 
   // 1. Explicit Disallow Rules — ALWAYS evaluate first and win over everything
   for (const denyRule of options.disallowedTools) {
-    if (matchesToolRule(denyRule, normalizedToolName, target)) {
+    if (matchesToolRule(denyRule, context.toolName, target)) {
       return {
         decision: "deny",
         reason: `Permission denied: Tool execution "${context.toolName}(${target})" is explicitly disallowed by rule "${denyRule}".`,
@@ -199,9 +208,14 @@ export function evaluateToolPermission(
     // In default or acceptEdits mode, TaskManager is permitted if Bash is explicitly allowed
     let isBashAllowed = false;
     for (const allowRule of options.allowedTools) {
-      if (matchesToolRule(allowRule, "bash", "*")) {
-        isBashAllowed = true;
-        break;
+      try {
+        const parsed = parseToolRule(allowRule);
+        if (parsed.toolName === "Bash") {
+          isBashAllowed = true;
+          break;
+        }
+      } catch {
+        // Ignore unparseable rules
       }
     }
 
@@ -209,7 +223,7 @@ export function evaluateToolPermission(
       return {
         decision: "deny",
         reason:
-          "Permission denied: TaskManager is coupled to Bash authorization. Allow Bash execution with --allowed-tools 'Bash(*)' or --permission-mode bypassPermissions.",
+          "Permission denied: TaskManager is coupled to Bash authorization. Allow Bash execution with --allowedTools 'Bash(*)' or --permissionMode bypassPermissions.",
       };
     }
 
@@ -225,15 +239,33 @@ export function evaluateToolPermission(
   }
 
   // 3. Explicit Allow Rules
+  let toolHasAllowRule = false;
   for (const allowRule of options.allowedTools) {
-    if (matchesToolRule(allowRule, normalizedToolName, target)) {
-      return { decision: "allow" };
+    try {
+      const parsed = parseToolRule(allowRule);
+      if (userToolName && parsed.toolName === userToolName) {
+        toolHasAllowRule = true;
+        if (matchesToolRule(allowRule, context.toolName, target)) {
+          return { decision: "allow" };
+        }
+      }
+    } catch {
+      // Ignore unparseable rules
     }
+  }
+
+  // Scoped allow-rule invariant: If specific allow rules were configured for this tool
+  // but this invocation target failed to match any of them, fail closed immediately.
+  if (toolHasAllowRule && userToolName) {
+    return {
+      decision: "deny",
+      reason: `Permission denied: Tool execution "${context.toolName}(${target})" does not match any allowed pattern for "${userToolName}".`,
+    };
   }
 
   // 4. Mode Defaults
   if (options.permissionMode === "plan") {
-    if (isReadOnlyTool(normalizedToolName)) {
+    if (isReadOnlyTool(context.toolName)) {
       return { decision: "allow" };
     }
     return {
@@ -243,29 +275,29 @@ export function evaluateToolPermission(
   }
 
   if (options.permissionMode === "acceptEdits") {
-    if (isReadOnlyTool(normalizedToolName) || isFileMutationTool(normalizedToolName)) {
+    if (isReadOnlyTool(context.toolName) || isFileMutationTool(context.toolName)) {
       return { decision: "allow" };
     }
     return {
       decision: "deny",
-      reason: `Permission denied: Shell execution "${context.toolName}(${target})" is not permitted in acceptEdits mode. Allow with --allowed-tools '${context.toolName}(${target})'.`,
+      reason: `Permission denied: Shell execution "${context.toolName}(${target})" is not permitted in acceptEdits mode. Allow with --allowedTools '${userToolName ?? context.toolName}(${target})'.`,
     };
   }
 
   // Default mode: Only read-only tools permitted by default
-  if (isReadOnlyTool(normalizedToolName)) {
+  if (isReadOnlyTool(context.toolName)) {
     return { decision: "allow" };
   }
 
-  if (isFileMutationTool(normalizedToolName)) {
+  if (isFileMutationTool(context.toolName)) {
     return {
       decision: "deny",
-      reason: `Permission denied: Workspace mutation "${context.toolName}(${target})" not allowed in mode default. Allow with --allowed-tools '${context.toolName}(${target})' or --permission-mode acceptEdits.`,
+      reason: `Permission denied: Workspace mutation "${context.toolName}(${target})" not allowed in mode default. Allow with --allowedTools '${userToolName ?? context.toolName}(${target})' or --permissionMode acceptEdits.`,
     };
   }
 
   return {
     decision: "deny",
-    reason: `Permission denied: Tool execution "${context.toolName}(${target})" not allowed in mode default. Allow with --allowed-tools '${context.toolName}(${target})'.`,
+    reason: `Permission denied: Tool execution "${context.toolName}(${target})" not allowed in mode default. Allow with --allowedTools '${userToolName ?? context.toolName}(${target})'.`,
   };
 }

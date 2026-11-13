@@ -3,6 +3,12 @@
  * @packageDocumentation
  */
 
+import {
+  type UserFacingToolName,
+  toUserFacingToolName,
+  userFacingToolNames,
+} from "./toolFilter.js";
+
 /** Placeholder token used to protect escaped asterisks during compilation. */
 const escapedStarPlaceholder = "\uE000";
 
@@ -98,6 +104,7 @@ export function matchWildcardPattern(
   if (pattern === "*" || pattern === "**") {
     return true;
   }
+
   const regex = compileWildcardRegex(pattern, caseInsensitive);
   return regex.test(target);
 }
@@ -106,8 +113,8 @@ export function matchWildcardPattern(
  * Structured parsed tool permission rule representation.
  */
 export interface ParsedToolRule {
-  /** The normalized name of the tool (e.g. "Bash", "readFile", "writeFile"). */
-  readonly toolName: string;
+  /** The canonical user-facing PascalCase tool name (e.g. "Bash", "Read", "Write"). */
+  readonly toolName: UserFacingToolName;
   /** Inner pattern matched against tool argument target (e.g. "git *", "src/**"). */
   readonly pattern: string;
 }
@@ -116,50 +123,67 @@ export interface ParsedToolRule {
  * Parses a declarative permission rule string into a structured tool and pattern pair.
  * Supports both scoped syntax `ToolName(pattern)` and bare tool names `ToolName`.
  *
- * @param rule - Raw permission rule string (e.g. "Bash(git *)", "writeFile(src/*)", "readFile").
+ * @param rule - Raw permission rule string (e.g. "Bash(git *)", "Write(src/*)", "Read").
  * @returns ParsedToolRule record.
+ * @throws {Error} If tool name is invalid or TaskManager is specified.
  *
  * @example
  * ```typescript
  * const parsed = parseToolRule("Bash(git status)");
- * // => { toolName: "bash", pattern: "git status" }
+ * // => { toolName: "Bash", pattern: "git status" }
  * ```
  */
 export function parseToolRule(rule: string): ParsedToolRule {
   const trimmed = rule.trim();
   const openParenIndex = trimmed.indexOf("(");
 
+  let rawToolName: string;
+  let pattern: string;
+
   if (openParenIndex !== -1 && trimmed.endsWith(")")) {
-    const toolName = trimmed.slice(0, openParenIndex).trim().toLowerCase();
-    const pattern = trimmed.slice(openParenIndex + 1, -1).trim();
-    return {
-      toolName,
-      pattern: pattern.length > 0 ? pattern : "*",
-    };
+    rawToolName = trimmed.slice(0, openParenIndex).trim();
+    pattern = trimmed.slice(openParenIndex + 1, -1).trim();
+  } else {
+    rawToolName = trimmed;
+    pattern = "*";
+  }
+
+  if (rawToolName === "TaskManager" || rawToolName.toLowerCase() === "taskmanager") {
+    throw new Error(
+      `Invalid permission rule "${rule}": TaskManager cannot be configured directly; it is coupled to Bash.`,
+    );
+  }
+
+  if (!userFacingToolNames.includes(rawToolName as UserFacingToolName)) {
+    throw new Error(
+      `Invalid tool name "${rawToolName}" in rule "${rule}". Allowed tools are: ${userFacingToolNames.join(", ")}.`,
+    );
   }
 
   return {
-    toolName: trimmed.toLowerCase(),
-    pattern: "*",
+    toolName: rawToolName as UserFacingToolName,
+    pattern: pattern.length > 0 ? pattern : "*",
   };
 }
 
 /**
  * Checks whether a given tool execution target matches a declarative rule string.
  *
- * @param rule - Permission rule string (e.g. "Bash(bun test *)").
- * @param toolName - Current executing tool name (e.g. "bash").
+ * @param rule - Permission rule string (e.g. "Bash(bun test *)", "Read(src/*)").
+ * @param toolName - Current executing tool name (e.g. "bash", "readFile", "Read").
  * @param target - Tool execution parameter to validate (e.g. "bun test tests/settings.test.ts").
  * @returns True if both the tool name and target pattern match.
  *
  * @example
  * ```typescript
  * matchesToolRule("Bash(git *)", "bash", "git checkout main"); // => true
+ * matchesToolRule("Read(src/*)", "readFile", "src/main.ts");    // => true
  * ```
  */
 export function matchesToolRule(rule: string, toolName: string, target: string): boolean {
   const parsed = parseToolRule(rule);
-  if (parsed.toolName !== toolName.toLowerCase()) {
+  const userTool = toUserFacingToolName(toolName);
+  if (!userTool || userTool !== parsed.toolName) {
     return false;
   }
   return matchWildcardPattern(parsed.pattern, target);

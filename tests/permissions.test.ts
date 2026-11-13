@@ -104,7 +104,7 @@ describe("Deterministic Policy Evaluation Precedence", () => {
   });
 
   it("evaluates default mode rules", () => {
-    // Read-only tools allowed by default
+    // Read-only tools allowed by default when unconstrained
     const readDecision = evaluateToolPermission(
       { toolName: "readFile", parameters: { filePath: "package.json" }, workingDirectory: cwd },
       { permissionMode: "default", allowedTools: [], disallowedTools: [] },
@@ -118,14 +118,14 @@ describe("Deterministic Policy Evaluation Precedence", () => {
     );
     expect(writeDecision.decision).toBe("deny");
 
-    // File mutations allowed with explicit rule using filePath
+    // File mutations allowed with explicit rule using canonical PascalCase format
     const allowedWrite = evaluateToolPermission(
       { toolName: "writeFile", parameters: { filePath: "src/foo.ts" }, workingDirectory: cwd },
-      { permissionMode: "default", allowedTools: ["writeFile(src/*)"], disallowedTools: [] },
+      { permissionMode: "default", allowedTools: ["Write(src/*)"], disallowedTools: [] },
     );
     expect(allowedWrite.decision).toBe("allow");
 
-    // Web fetch allowed by default in default mode (read-only) or explicit allow
+    // Web fetch allowed by default in default mode (read-only)
     const fetchDecision = evaluateToolPermission(
       {
         toolName: "webFetch",
@@ -146,7 +146,7 @@ describe("Deterministic Policy Evaluation Precedence", () => {
       {
         permissionMode: "default",
         allowedTools: [],
-        disallowedTools: ["webFetch(*malicious.com*)"],
+        disallowedTools: ["WebFetch(*malicious.com*)"],
       },
     );
     expect(fetchDenied.decision).toBe("deny");
@@ -157,6 +157,30 @@ describe("Deterministic Policy Evaluation Precedence", () => {
       { permissionMode: "default", allowedTools: [], disallowedTools: [] },
     );
     expect(bashDecision.decision).toBe("deny");
+  });
+
+  it("enforces scoped allow rules strictly and denies unmatched targets", () => {
+    // When Read is scoped to random.txt, reading random.txt is allowed
+    const allowTarget = evaluateToolPermission(
+      { toolName: "readFile", parameters: { filePath: "random.txt" }, workingDirectory: cwd },
+      {
+        permissionMode: "default",
+        allowedTools: ["Read(random.txt)", "Bash(ls *)"],
+        disallowedTools: [],
+      },
+    );
+    expect(allowTarget.decision).toBe("allow");
+
+    // Reading unlisted AGENTS.md is denied despite Read being normally read-only in default mode
+    const denyTarget = evaluateToolPermission(
+      { toolName: "readFile", parameters: { filePath: "AGENTS.md" }, workingDirectory: cwd },
+      {
+        permissionMode: "default",
+        allowedTools: ["Read(random.txt)", "Bash(ls *)"],
+        disallowedTools: [],
+      },
+    );
+    expect(denyTarget.decision).toBe("deny");
   });
 
   it("evaluates acceptEdits mode", () => {
