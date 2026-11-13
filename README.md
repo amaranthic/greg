@@ -63,10 +63,14 @@ greg "Fix failing tests" --permissionMode acceptEdits --allowedTools "Bash(bun t
   ```
 - **🌐 Frontier Model Agnostic**: First-slash routing across Anthropic, Google, OpenAI, DeepSeek, Groq, and local compatible gateways (`compatible/dummy`).
 - **🛡️ Deterministic Permission Modes**:
-  - `default`: Read-only tools (`readFile`, `glob`, `grep`) auto-allowed. Mutations and shell require explicit allow rules.
-  - `acceptEdits`: Workspace edits (`writeFile`, `editFile`) auto-approved. Shell commands require explicit allow rules.
-  - `plan`: Pure reconnaissance; mutating tools are excluded.
+  - `default`: Read-only reconnaissance tools (`Read`, `Glob`, `Grep`, `WebFetch`, `WebSearch`) auto-allowed. Mutations and shell require explicit allow rules.
+  - `acceptEdits`: Workspace edits (`Write`, `Edit`) auto-approved. Shell commands require explicit allow rules.
+  - `plan`: Pure reconnaissance; mutating tools and shell execution are excluded.
   - `bypassPermissions`: Full autonomous execution.
+- **🔒 Scoped Wildcard Security**:
+  - Concise PascalCase tool format: `Read`, `Write`, `Edit`, `Bash`, `Glob`, `Grep`, `WebFetch`, `WebSearch`.
+  - Scoped allow rules strictly enforce boundaries (e.g. `--allowedTools "Read(src/*)"` allows `src/`, but immediately denies reading outside files).
+  - Background processes are seamlessly handled—`taskManager` is automatically coupled to `Bash` authorization.
 - **🔄 Resumable Threads**: Seamless multi-turn session continuation with `-c` (latest thread) or `-r <id>`.
 
 ---
@@ -80,6 +84,9 @@ greg "List exported symbols in src/settings/index.ts" -o json | jq -r '.result'
 # Stream real-time NDJSON events
 greg "Build project and inspect compiler output" -o stream-json --verbose
 
+# Run with strictly scoped read and shell permissions
+greg "Audit package.json dependencies" --tools "Read,Bash" --allowedTools "Read(package.json),Bash(npm audit)"
+
 # Preflight inspect a checkpoint restore without touching files
 greg checkpoints restore 1 --dryRun
 
@@ -91,18 +98,18 @@ greg -c "Now add unit tests for those changes"
 
 ## 🎛️ Primary CLI Options
 
-| Flag                           | Description                                                   | Default          |
-| :----------------------------- | :------------------------------------------------------------ | :--------------- |
-| `-p, --print`                  | Run non-interactively in print mode                           | Active           |
-| `-o, --outputFormat <format>`  | `text` \| `json` \| `stream-json`                             | `text`           |
-| `-m, --model <provider/model>` | Frontier model override                                       | `dummy`          |
-| `-e, --effort <level>`         | Reasoning effort (`none`, `low`, `medium`, `high`, `max`)     | Provider default |
-| `-s, --maxTurns <number>`      | Maximum turn loop iterations                                  | `50`             |
-| `-t, --timeout <duration>`     | Wall-clock timeout (e.g. `30m`, `10s`)                        | `30m`            |
-| `--permissionMode <mode>`      | `default` \| `acceptEdits` \| `plan` \| `bypassPermissions`   | `default`        |
-| `--allowedTools <rules>`       | Allow specific tools (e.g. `Bash(git *)`, `writeFile(src/*)`) | `[]`             |
-| `--disallowedTools <rules>`    | Deny specific tools (always overrides allows)                 | `[]`             |
-| `--tools <names>`              | Filter exposed tool catalogue (`""` fails closed)             | `default`        |
+| Flag                           | Description                                                               | Default          |
+| :----------------------------- | :------------------------------------------------------------------------ | :--------------- |
+| `-p, --print`                  | Run non-interactively in print mode                                       | Active           |
+| `-o, --outputFormat <format>`  | `text` \| `json` \| `stream-json`                                         | `text`           |
+| `-m, --model <provider/model>` | Frontier model override                                                   | `dummy`          |
+| `-e, --effort <level>`         | Reasoning effort (`none`, `low`, `medium`, `high`, `max`)                 | Provider default |
+| `-s, --maxTurns <number>`      | Maximum turn loop iterations                                              | `50`             |
+| `-t, --timeout <duration>`     | Wall-clock timeout (e.g. `30m`, `10s`)                                    | `30m`            |
+| `--permissionMode <mode>`      | `default` \| `acceptEdits` \| `plan` \| `bypassPermissions`               | `default`        |
+| `--allowedTools <rules>`       | Allow specific tools (e.g. `Bash(git *)`, `Write(src/*)`, `Read(docs/*)`) | `[]`             |
+| `--disallowedTools <rules>`    | Deny specific tools (always overrides allows)                             | `[]`             |
+| `--tools <names>`              | Filter exposed tool catalogue (e.g. `Read,Bash`; `""` fails closed)       | `default`        |
 | `-c, --continue`               | Continue latest workspace thread session                      | —                |
 | `-r, --resume <id>`            | Resume a specific thread session by ID                        | —                |
 | `--home <dir>`                 | Override state storage and configuration directory            | `~/.greg`        |

@@ -1,6 +1,6 @@
 {
   "name": "@amaranthic/greg",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The post-modern autonomous print agent powered by Hernex",
   "type": "module",
   "bin": {
