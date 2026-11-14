@@ -441,6 +441,7 @@ export async function executePrintRun(
       try {
         turnText = "";
         let modelTurnFailed = false;
+        exitCode = exitCodes.success;
 
         const promptsToExecute: string[] = [];
         if (options.prompt && options.prompt.trim().length > 0) {
