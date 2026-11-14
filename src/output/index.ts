@@ -13,6 +13,8 @@ export {
   type OutputFormat,
   type OutputSink,
   type OutputSinkOptions,
+  type PermissionDenialRecord,
+  type RunMetrics,
 } from "./sink.js";
 
 export { StderrLogger } from "./log.js";

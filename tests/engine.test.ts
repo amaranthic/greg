@@ -10,7 +10,7 @@ import {
   normalizeThreadTitle,
   parseDurationMs,
 } from "../src/utils/index.js";
-import { readPipedStdin, SignalLifecycle } from "../src/core/index.js";
+import { readPipedStdin, SignalLifecycle, validateAgainstJsonSchema } from "../src/core/index.js";
 
 describe("Formatting & Utility Parsers", () => {
   it("parses duration strings into milliseconds", () => {
@@ -72,5 +72,48 @@ describe("Piped Stdin Reader", () => {
     const result = await readPipedStdin();
     // In test runner with TTY or no stdin piped, returns undefined
     expect(result === undefined || typeof result === "string").toBe(true);
+  });
+});
+
+describe("JSON Schema Output Validation", () => {
+  const schema = {
+    type: "object",
+    required: ["name", "score"],
+    properties: {
+      name: { type: "string" },
+      score: { type: "number" },
+      tags: {
+        type: "array",
+        items: { type: "string" },
+      },
+    },
+  };
+
+  it("validates compliant payloads successfully", () => {
+    const validPayload = {
+      name: "greg",
+      score: 100,
+      tags: ["cli", "print-agent"],
+    };
+    const res = validateAgainstJsonSchema(validPayload, schema);
+    expect(res.valid).toBe(true);
+  });
+
+  it("rejects non-object when object expected", () => {
+    const res = validateAgainstJsonSchema("not-an-object", schema);
+    expect(res.valid).toBe(false);
+    expect(res.error).toContain("Expected object");
+  });
+
+  it("rejects missing required properties", () => {
+    const res = validateAgainstJsonSchema({ name: "greg" }, schema);
+    expect(res.valid).toBe(false);
+    expect(res.error).toContain('Missing required property: "score"');
+  });
+
+  it("rejects mismatched property types", () => {
+    const res = validateAgainstJsonSchema({ name: "greg", score: "not-a-number" }, schema);
+    expect(res.valid).toBe(false);
+    expect(res.error).toContain('Property "score"');
   });
 });

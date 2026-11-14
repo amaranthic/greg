@@ -34,6 +34,8 @@ export interface CliOverrideOptions {
   readonly maxTurns?: number | undefined;
   /** Timeout duration override string. */
   readonly timeout?: string | undefined;
+  /** Fallback models list passed on the command line. */
+  readonly fallbackModels?: readonly string[] | undefined;
   /** Explicit API key override. */
   readonly apiKey?: string | undefined;
   /** Explicit base URL override. */
@@ -58,6 +60,8 @@ export interface ResolvedConfiguration {
   readonly provider: string;
   /** Extracted model identifier without provider prefix. */
   readonly modelId: string;
+  /** Normalized fallback models list to try on failure. */
+  readonly fallbackModels: readonly string[];
   /** Authoritative non-empty base URL for model API communication. */
   readonly baseUrl: string;
   /** Authoritative non-empty API key for provider requests. */
@@ -249,6 +253,23 @@ export async function resolveEffectiveConfiguration(
   const effectiveModelRaw = options.model ?? baseSettings.model;
   const normalizedModel = normalizeModelString(effectiveModelRaw);
 
+  const rawFallbackModels = options.fallbackModels ?? baseSettings.fallbackModels;
+  const normalizedFallbackModels: string[] = [];
+
+  for (const rawFallback of rawFallbackModels) {
+    if (!rawFallback || rawFallback.trim().length === 0) {
+      continue;
+    }
+    const normalized = normalizeModelString(rawFallback.trim());
+    const lowerProvider = normalized.provider.toLowerCase();
+    if (!Object.prototype.hasOwnProperty.call(defaultProviderBaseUrls, lowerProvider)) {
+      throw new Error(
+        `Invalid fallback model "${rawFallback}": provider "${normalized.provider}" is not a recognized Hernex provider.`,
+      );
+    }
+    normalizedFallbackModels.push(normalized.model);
+  }
+
   const mergedAllowedTools = options.allowedTools
     ? [...new Set([...baseSettings.allowedTools, ...options.allowedTools])]
     : baseSettings.allowedTools;
@@ -260,6 +281,7 @@ export async function resolveEffectiveConfiguration(
   const effectiveSettings = settingsSchema.parse({
     ...baseSettings,
     model: normalizedModel.model,
+    fallbackModels: normalizedFallbackModels,
     effort: options.effort ?? baseSettings.effort,
     permissionMode: options.permissionMode ?? baseSettings.permissionMode,
     allowedTools: mergedAllowedTools,
@@ -277,6 +299,7 @@ export async function resolveEffectiveConfiguration(
     model: normalizedModel.model,
     provider: normalizedModel.provider,
     modelId: normalizedModel.modelId,
+    fallbackModels: normalizedFallbackModels,
     baseUrl,
     apiKey,
   };

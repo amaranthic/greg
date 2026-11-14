@@ -54,6 +54,8 @@ export const settingsSchema = z.object({
   maxTurns: z.number().int().positive().default(defaultMaxTurns),
   /** Default wall-clock execution timeout in human-readable syntax. */
   timeout: z.string().default(defaultTimeoutDuration),
+  /** Ordered list of fallback models tried left-to-right when primary fails. */
+  fallbackModels: z.array(z.string()).default([]),
 });
 
 /**

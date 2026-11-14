@@ -67,9 +67,14 @@ export function createProgram(): Command {
       "Run in print mode (default behavior for prompt or piped input)",
     )
     .option("-o, --outputFormat <format>", "Output format: text | json | stream-json", "text")
+    .option("--inputFormat <format>", "Input format: text | stream-json", "text")
     .option(
       "-m, --model <model>",
       "Model override (e.g. anthropic/claude-3-7-sonnet, compatible/dummy)",
+    )
+    .option(
+      "--fallbackModel <provider/modelId>",
+      "Comma-separated fallback models tried left-to-right on failure (e.g. google/gemini-flash-latest,openrouter/openrouter/free)",
     )
     .option(
       "-e, --effort <effort>",
@@ -77,6 +82,7 @@ export function createProgram(): Command {
     )
     .option("-s, --maxTurns <number>", "Maximum turn loop steps before stopping")
     .option("-t, --timeout <timeout>", "Wall-clock timeout e.g. 30m, 10s")
+    .option("--jsonSchema <schema>", "JSON Schema for structured output validation")
     .option("--systemPrompt <prompt>", "Override default system prompt instructions")
     .option("--appendSystemPrompt <prompt>", "Append instructions to the system prompt")
     .option(
@@ -102,9 +108,14 @@ export function createProgram(): Command {
     .option("--verbose", "Emit diagnostic tool activity and status to stderr")
     .option("--apiKey <key>", "Explicit provider API key override")
     .option("--baseUrl <url>", "Explicit provider base URL override")
-    .action(async (promptArgument?: string, options: Record<string, unknown> = {}) => {
+    .action(async (promptArgument?: unknown) => {
+      const options = program.opts<Record<string, unknown>>();
       const effectivePrompt =
-        promptArgument ?? (typeof options.print === "string" ? options.print : undefined);
+        typeof promptArgument === "string"
+          ? promptArgument
+          : typeof options.print === "string"
+            ? options.print
+            : undefined;
 
       const runArgs: RunCommandArgs = {
         ...options,

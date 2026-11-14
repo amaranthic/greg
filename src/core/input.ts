@@ -79,3 +79,56 @@ export async function readPipedStdin(
     process.stdin.resume();
   });
 }
+
+/**
+ * Asynchronously yields raw message lines or user prompt strings from a stream-json stdin feed.
+ *
+ * @returns AsyncGenerator yielding validated user prompt strings extracted from stream-json lines.
+ */
+export async function* readStreamJsonLines(): AsyncGenerator<string, void, void> {
+  if (process.stdin.isTTY) {
+    return;
+  }
+
+  let buffer = "";
+  for await (const chunk of process.stdin) {
+    const text = typeof chunk === "string" ? chunk : chunk.toString("utf-8");
+    buffer += text;
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const rawLine of lines) {
+      const trimmed = rawLine.trim();
+      if (trimmed.length === 0) {
+        continue;
+      }
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (typeof parsed === "object" && parsed !== null) {
+          if (parsed.type === "user" && typeof parsed.message === "string") {
+            yield parsed.message;
+          } else if (typeof parsed.prompt === "string") {
+            yield parsed.prompt;
+          }
+        }
+      } catch {
+        // Skip malformed lines
+      }
+    }
+  }
+
+  if (buffer.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(buffer.trim());
+      if (typeof parsed === "object" && parsed !== null) {
+        if (parsed.type === "user" && typeof parsed.message === "string") {
+          yield parsed.message;
+        } else if (typeof parsed.prompt === "string") {
+          yield parsed.prompt;
+        }
+      }
+    } catch {
+      // Skip trailing malformed
+    }
+  }
+}

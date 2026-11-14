@@ -3,13 +3,47 @@
  * @packageDocumentation
  */
 
-import type { AgentEvent } from "@amaranthic/hernex";
+import type { AgentEvent, StepTokenUsage } from "@amaranthic/hernex";
 import { installStreamJsonStdoutGuard, restoreStdoutGuard } from "./guard.js";
 
 /**
  * Supported machine-readable stdout formatting options.
  */
 export type OutputFormat = "text" | "json" | "stream-json";
+
+/**
+ * Record describing a tool execution attempt that was blocked by policy evaluation.
+ */
+export interface PermissionDenialRecord {
+  /** Name of the tool whose execution was denied. */
+  readonly tool: string;
+  /** Normalized target pattern evaluated against permissions. */
+  readonly target: string;
+  /** Detailed reason explaining why execution was denied. */
+  readonly reason: string;
+  /** Epoch timestamp in milliseconds when the denial occurred. */
+  readonly timestamp: number;
+}
+
+/**
+ * Execution telemetry and lifecycle metrics passed to sinks upon turn finalization.
+ */
+export interface RunMetrics {
+  /** Epoch timestamp in milliseconds when the run started. */
+  readonly runStartedAt: number;
+  /** Epoch timestamp in milliseconds when the first token or thought was emitted, if any. */
+  readonly firstTokenAt?: number | undefined;
+  /** Estimated or measured API duration in milliseconds. */
+  readonly durationApiMs?: number | undefined;
+  /** Number of executed or completed turns in this thread run. */
+  readonly numTurns: number;
+  /** Stop or finish reason for the turn (e.g. "completed", "maxSteps", "error"). */
+  readonly stopReason: string;
+  /** Consolidated token usage for the turn. */
+  readonly totalUsage?: StepTokenUsage | undefined;
+  /** List of recorded tool permission denials. */
+  readonly permissionDenials: readonly PermissionDenialRecord[];
+}
 
 /**
  * Common configuration options for initializing an OutputSink.
@@ -35,8 +69,14 @@ export interface OutputSink {
   emitInit(): void;
   /** Handles an event yielded by the Hernex turn loop stream. */
   emit(event: AgentEvent): void;
-  /** Finalizes stream output and writes closing payloads. */
-  finish(exitCode: number): Promise<void>;
+  /**
+   * Finalizes stream output and writes closing payloads.
+   *
+   * @param exitCode - Final POSIX exit code.
+   * @param metrics - Optional execution telemetry and timing metrics.
+   * @returns Promise resolving when final writes flush.
+   */
+  finish(exitCode: number, metrics?: RunMetrics): Promise<void>;
 }
 
 /**
@@ -56,7 +96,7 @@ export class TextSink implements OutputSink {
     }
   }
 
-  public async finish(): Promise<void> {
+  public async finish(_exitCode?: number, _metrics?: RunMetrics): Promise<void> {
     if (this.hasEmittedText) {
       process.stdout.write("\n");
     }
@@ -70,7 +110,7 @@ export class JsonSink implements OutputSink {
   private readonly options: OutputSinkOptions;
   private accumulatedText = "";
   private finishReason = "unknown";
-  private tokenUsage: unknown = null;
+  private tokenUsage: StepTokenUsage | null = null;
   private readonly checkpoints: string[] = [];
   private fatalError: unknown = null;
 
@@ -96,16 +136,36 @@ export class JsonSink implements OutputSink {
     }
   }
 
-  public async finish(exitCode: number): Promise<void> {
+  public async finish(exitCode: number, metrics?: RunMetrics): Promise<void> {
     restoreStdoutGuard();
 
+    const durationMs = metrics ? Math.max(0, Date.now() - metrics.runStartedAt) : 0;
+    const ttftMs =
+      metrics?.firstTokenAt !== undefined && metrics.runStartedAt !== undefined
+        ? Math.max(0, metrics.firstTokenAt - metrics.runStartedAt)
+        : null;
+
+    const resolvedFinishReason = metrics?.stopReason ?? this.finishReason;
+    const resolvedUsage = metrics?.totalUsage ?? this.tokenUsage;
+    const numTurns = metrics?.numTurns ?? 1;
+    const permissionDenials = metrics?.permissionDenials ?? [];
+
     const payload = {
+      type: "result",
+      subtype: exitCode === 0 ? "success" : "error",
       result: this.accumulatedText,
       threadId: this.options.threadId,
+      sessionId: this.options.threadId,
       model: this.options.model,
       provider: this.options.provider,
-      finishReason: this.finishReason,
-      usage: this.tokenUsage,
+      finishReason: resolvedFinishReason,
+      stopReason: resolvedFinishReason,
+      durationMs,
+      durationApiMs: metrics?.durationApiMs ?? durationMs,
+      ttftMs,
+      numTurns,
+      usage: resolvedUsage,
+      permissionDenials,
       checkpoints: this.checkpoints,
       exitCode,
       ...(this.fatalError ? { error: this.fatalError } : {}),
@@ -120,6 +180,10 @@ export class JsonSink implements OutputSink {
  */
 export class StreamJsonSink implements OutputSink {
   private readonly options: OutputSinkOptions;
+  private accumulatedText = "";
+  private finishReason = "unknown";
+  private tokenUsage: StepTokenUsage | null = null;
+  private readonly checkpoints: string[] = [];
 
   public constructor(options: OutputSinkOptions) {
     this.options = options;
@@ -130,14 +194,31 @@ export class StreamJsonSink implements OutputSink {
     this.writeNdjson({
       type: "init",
       threadId: this.options.threadId,
+      sessionId: this.options.threadId,
       model: this.options.model,
       provider: this.options.provider,
       workingDirectory: this.options.workingDirectory,
     });
   }
 
+  /**
+   * Emits a real-time event when a tool permission is denied.
+   *
+   * @param record - Denial record details.
+   */
+  public emitPermissionDenial(record: PermissionDenialRecord): void {
+    this.writeNdjson({
+      type: "permissionDenied",
+      tool: record.tool,
+      target: record.target,
+      reason: record.reason,
+      timestamp: record.timestamp,
+    });
+  }
+
   public emit(event: AgentEvent): void {
     if (event.type === "tokenDelta") {
+      this.accumulatedText += event.text;
       this.writeNdjson({ type: "tokenDelta", text: event.text });
     } else if (event.type === "thoughtDelta") {
       this.writeNdjson({ type: "thoughtDelta", text: event.text });
@@ -155,14 +236,18 @@ export class StreamJsonSink implements OutputSink {
         callId: event.callId,
         result: event.result,
         isError: event.isError,
+        durationMs: event.durationMs,
       });
     } else if (event.type === "checkpointCreated") {
+      this.checkpoints.push(event.checkpointId);
       this.writeNdjson({
         type: "checkpoint",
         checkpointId: event.checkpointId,
         sequence: event.sequence,
       });
     } else if (event.type === "turnFinished") {
+      this.finishReason = event.finishReason;
+      this.tokenUsage = event.totalUsage;
       this.writeNdjson({
         type: "done",
         finishReason: event.finishReason,
@@ -178,7 +263,38 @@ export class StreamJsonSink implements OutputSink {
     }
   }
 
-  public async finish(exitCode: number): Promise<void> {
+  public async finish(exitCode: number, metrics?: RunMetrics): Promise<void> {
+    const durationMs = metrics ? Math.max(0, Date.now() - metrics.runStartedAt) : 0;
+    const ttftMs =
+      metrics?.firstTokenAt !== undefined && metrics.runStartedAt !== undefined
+        ? Math.max(0, metrics.firstTokenAt - metrics.runStartedAt)
+        : null;
+
+    const resolvedFinishReason = metrics?.stopReason ?? this.finishReason;
+    const resolvedUsage = metrics?.totalUsage ?? this.tokenUsage;
+    const numTurns = metrics?.numTurns ?? 1;
+    const permissionDenials = metrics?.permissionDenials ?? [];
+
+    this.writeNdjson({
+      type: "result",
+      subtype: exitCode === 0 ? "success" : "error",
+      result: this.accumulatedText,
+      threadId: this.options.threadId,
+      sessionId: this.options.threadId,
+      model: this.options.model,
+      provider: this.options.provider,
+      finishReason: resolvedFinishReason,
+      stopReason: resolvedFinishReason,
+      durationMs,
+      durationApiMs: metrics?.durationApiMs ?? durationMs,
+      ttftMs,
+      numTurns,
+      usage: resolvedUsage,
+      permissionDenials,
+      checkpoints: this.checkpoints,
+      exitCode,
+    });
+
     this.writeNdjson({
       type: "exit",
       exitCode,

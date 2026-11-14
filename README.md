@@ -81,8 +81,17 @@ greg "Fix failing tests" --permissionMode acceptEdits --allowedTools "Bash(bun t
 # Extract structured JSON for CI/CD automation
 greg "List exported symbols in src/settings/index.ts" -o json | jq -r '.result'
 
+# Structured output strictly validated against a JSON Schema
+greg "List 3 release highlights" --jsonSchema '{"type":"object","properties":{"items":{"type":"array"}},"required":["items"]}'
+
+# Fallback model chain tried left-to-right on failure
+greg "Deep code refactoring" -m anthropic/claude-3-7-sonnet --fallbackModel google/gemini-flash-latest,openrouter/openrouter/free
+
 # Stream real-time NDJSON events
 greg "Build project and inspect compiler output" -o stream-json --verbose
+
+# Bidirectional stream-json agent pipeline
+cat prompts.ndjson | greg --inputFormat stream-json --outputFormat stream-json
 
 # Run with strictly scoped read and shell permissions
 greg "Audit package.json dependencies" --tools "Read,Bash" --allowedTools "Read(package.json),Bash(npm audit)"
@@ -102,7 +111,10 @@ greg -c "Now add unit tests for those changes"
 | :----------------------------- | :------------------------------------------------------------------------ | :--------------- |
 | `-p, --print`                  | Run non-interactively in print mode                                       | Active           |
 | `-o, --outputFormat <format>`  | `text` \| `json` \| `stream-json`                                         | `text`           |
+| `--inputFormat <format>`       | `text` \| `stream-json` (bidirectional stdin streaming)                   | `text`           |
 | `-m, --model <provider/model>` | Frontier model override                                                   | `dummy`          |
+| `--fallbackModel <models>`     | Comma-separated fallback models tried left-to-right on failure            | `[]`             |
+| `--jsonSchema <schema>`        | JSON Schema string for structured output validation                       | —                |
 | `-e, --effort <level>`         | Reasoning effort (`none`, `low`, `medium`, `high`, `max`)                 | Provider default |
 | `-s, --maxTurns <number>`      | Maximum turn loop iterations                                              | `50`             |
 | `-t, --timeout <duration>`     | Wall-clock timeout (e.g. `30m`, `10s`)                                    | `30m`            |
@@ -110,9 +122,9 @@ greg -c "Now add unit tests for those changes"
 | `--allowedTools <rules>`       | Allow specific tools (e.g. `Bash(git *)`, `Write(src/*)`, `Read(docs/*)`) | `[]`             |
 | `--disallowedTools <rules>`    | Deny specific tools (always overrides allows)                             | `[]`             |
 | `--tools <names>`              | Filter exposed tool catalogue (e.g. `Read,Bash`; `""` fails closed)       | `default`        |
-| `-c, --continue`               | Continue latest workspace thread session                      | —                |
-| `-r, --resume <id>`            | Resume a specific thread session by ID                        | —                |
-| `--home <dir>`                 | Override state storage and configuration directory            | `~/.greg`        |
+| `-c, --continue`               | Continue latest workspace thread session                                  | —                |
+| `-r, --resume <id>`            | Resume a specific thread session by ID                                    | —                |
+| `--home <dir>`                 | Override state storage and configuration directory                        | `~/.greg`        |
 
 ---
 

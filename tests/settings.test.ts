@@ -99,8 +99,16 @@ describe("Model Normalization & Credential Resolution", () => {
   });
 
   it("resolves default and override base URLs", () => {
-    const anthropicDefault = resolveProviderBaseUrl("anthropic");
-    expect(anthropicDefault).toBe("https://api.anthropic.com/v1");
+    const originalAnthropicUrl = process.env.ANTHROPIC_BASE_URL;
+    try {
+      delete process.env.ANTHROPIC_BASE_URL;
+      const anthropicDefault = resolveProviderBaseUrl("anthropic");
+      expect(anthropicDefault).toBe("https://api.anthropic.com/v1");
+    } finally {
+      if (originalAnthropicUrl !== undefined) {
+        process.env.ANTHROPIC_BASE_URL = originalAnthropicUrl;
+      }
+    }
 
     const compatibleDefault = resolveProviderBaseUrl("compatible");
     expect(compatibleDefault).toBe("http://localhost:8080/v1");
@@ -138,6 +146,40 @@ describe("Model Normalization & Credential Resolution", () => {
       expect(config.provider).toBe("openai");
       expect(config.modelId).toBe("gpt-4o");
       expect(config.homeDirectory).toBe(tempHome);
+    } finally {
+      await rm(tempHome, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves and validates fallback models correctly", async () => {
+    const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-fallback-test-"));
+    try {
+      const config = await resolveEffectiveConfiguration(
+        {
+          model: "openai/gpt-4o",
+          fallbackModels: ["google/gemini-2.5-flash", "compatible/dummy"],
+          home: tempHome,
+          bare: true,
+        },
+        process.cwd(),
+      );
+
+      expect(config.fallbackModels).toHaveLength(2);
+      expect(config.fallbackModels[0]).toBe("google/gemini-2.5-flash");
+      expect(config.fallbackModels[1]).toBe("compatible/dummy");
+
+      // Invalid provider should throw
+      expect(
+        resolveEffectiveConfiguration(
+          {
+            model: "openai/gpt-4o",
+            fallbackModels: ["unsupported_provider/model-x"],
+            home: tempHome,
+            bare: true,
+          },
+          process.cwd(),
+        ),
+      ).rejects.toThrow("is not a recognized Hernex provider");
     } finally {
       await rm(tempHome, { recursive: true, force: true });
     }

@@ -3,8 +3,8 @@
  * @packageDocumentation
  */
 
-export { readPipedStdin } from "./input.js";
+export { readPipedStdin, readStreamJsonLines } from "./input.js";
 
 export { SignalLifecycle } from "./signals.js";
 
-export { executePrintRun, type ExecutionOptions } from "./engine.js";
+export { executePrintRun, validateAgainstJsonSchema, type ExecutionOptions } from "./engine.js";

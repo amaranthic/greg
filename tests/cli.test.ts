@@ -192,4 +192,72 @@ describe("Greg CLI End-to-End Execution", () => {
       await rm(tempHome, { recursive: true, force: true });
     }
   });
+
+  it("rejects malformed --json-schema with exit code 1", async () => {
+    const proc = Bun.spawn(["bun", cliEntry, "test prompt", "--jsonSchema", "{not valid json"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stderr = await new Response(proc.stderr).text();
+    const exitCode = await proc.exited;
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("Error: --json-schema is not valid JSON");
+  });
+
+  it("rejects non-object --json-schema with exit code 1", async () => {
+    const proc = Bun.spawn(["bun", cliEntry, "test prompt", "--jsonSchema", '["an", "array"]'], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stderr = await new Response(proc.stderr).text();
+    const exitCode = await proc.exited;
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("Error: --json-schema must be a JSON object");
+  });
+
+  it("rejects invalid provider in --fallback-model with exit code 1", async () => {
+    const proc = Bun.spawn(
+      ["bun", cliEntry, "test prompt", "--fallbackModel", "unknownprovider/model-x"],
+      {
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const stderr = await new Response(proc.stderr).text();
+    const exitCode = await proc.exited;
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("is not a recognized Hernex provider");
+  });
+
+  it("rejects --input-format=stream-json when --output-format is not stream-json", async () => {
+    const proc = Bun.spawn(
+      ["bun", cliEntry, "--inputFormat", "stream-json", "--outputFormat", "text"],
+      {
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const stderr = await new Response(proc.stderr).text();
+    const exitCode = await proc.exited;
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain(
+      "Error: --input-format=stream-json requires output-format=stream-json",
+    );
+  });
+
+  it("rejects invalid --input-format value with exit code 1", async () => {
+    const proc = Bun.spawn(["bun", cliEntry, "test prompt", "--inputFormat", "xml"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stderr = await new Response(proc.stderr).text();
+    const exitCode = await proc.exited;
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain('Error: Invalid input format "xml"');
+  });
 });

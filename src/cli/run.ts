@@ -15,11 +15,14 @@ import { normalizeThreadTitle, writeToStderr } from "../utils/index.js";
 export interface RunCommandArgs {
   readonly prompt?: string | undefined;
   readonly print?: boolean | string | undefined;
+  readonly inputFormat?: string | undefined;
   readonly outputFormat?: string | undefined;
   readonly model?: string | undefined;
+  readonly fallbackModel?: string | string[] | undefined;
   readonly effort?: string | undefined;
   readonly maxTurns?: string | undefined;
   readonly timeout?: string | undefined;
+  readonly jsonSchema?: string | undefined;
   readonly systemPrompt?: string | undefined;
   readonly appendSystemPrompt?: string | undefined;
   readonly permissionMode?: string | undefined;
@@ -71,7 +74,27 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
   const hasUserPrompt = typeof userPrompt === "string" && userPrompt.length > 0;
   const hasPipedStdin = typeof pipedStdin === "string" && pipedStdin.length > 0;
 
-  if (!hasUserPrompt && !hasPipedStdin) {
+  const rawInputFormat = (args.inputFormat ?? "text").toLowerCase();
+  if (rawInputFormat !== "text" && rawInputFormat !== "stream-json") {
+    writeToStderr(
+      `Error: Invalid input format "${args.inputFormat}". Choices: "text", "stream-json".\n`,
+    );
+    process.exit(1);
+  }
+
+  const rawFormat = (args.outputFormat ?? "text").toLowerCase();
+  const validFormats: OutputFormat[] = ["text", "json", "stream-json"];
+  const outputFormat: OutputFormat = validFormats.includes(rawFormat as OutputFormat)
+    ? (rawFormat as OutputFormat)
+    : "text";
+
+  if (rawInputFormat === "stream-json" && outputFormat !== "stream-json") {
+    writeToStderr("Error: --input-format=stream-json requires output-format=stream-json.\n");
+    process.exit(1);
+  }
+
+  const isStreamJsonInput = rawInputFormat === "stream-json";
+  if (!hasUserPrompt && !hasPipedStdin && !isStreamJsonInput) {
     writeToStderr(
       "Error: Input must be provided either as a prompt argument or through piped stdin.\n",
     );
@@ -89,10 +112,13 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     // Only user prompt
     effectivePrompt = userPrompt!;
     rawTitleSource = userPrompt!;
-  } else {
+  } else if (hasPipedStdin) {
     // Only stdin: sample prompt prepended, but title derived from normalized stdin text
     effectivePrompt = `${defaultStdinPrompt}\n\n---\nStandard Input:\n${pipedStdin}`;
     rawTitleSource = pipedStdin!;
+  } else {
+    effectivePrompt = "";
+    rawTitleSource = "Stream JSON Session";
   }
 
   const derivedTitle = normalizeThreadTitle(rawTitleSource, maxThreadTitleLength);
@@ -143,6 +169,7 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
 
   const overrides: CliOverrideOptions = {
     model: args.model,
+    fallbackModels: parseList(args.fallbackModel),
     effort: args.effort as any,
     permissionMode: args.permissionMode as any,
     allowedTools: parseList(args.allowedTools),
@@ -163,16 +190,27 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     process.exit(1);
   }
 
-  const rawFormat = (args.outputFormat ?? "text").toLowerCase();
-  const validFormats: OutputFormat[] = ["text", "json", "stream-json"];
-  const outputFormat: OutputFormat = validFormats.includes(rawFormat as OutputFormat)
-    ? (rawFormat as OutputFormat)
-    : "text";
+  let parsedJsonSchema: Record<string, unknown> | undefined;
+  if (args.jsonSchema !== undefined) {
+    const trimmed = args.jsonSchema.trim();
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        writeToStderr("Error: --json-schema must be a JSON object\n");
+        process.exit(1);
+      }
+      parsedJsonSchema = parsed as Record<string, unknown>;
+    } catch (err) {
+      writeToStderr(`Error: --json-schema is not valid JSON: ${(err as Error).message}\n`);
+      process.exit(1);
+    }
+  }
 
   const exitCode = await executePrintRun({
     prompt: effectivePrompt,
     title: derivedTitle,
     configuration: resolvedConfig,
+    inputFormat: rawInputFormat as "text" | "stream-json",
     outputFormat,
     resumeThreadId: args.resume,
     continueLatest: args.continue,
@@ -182,6 +220,7 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     dangerouslySkipPermissions: args.dangerouslySkipPermissions,
     systemPrompt: args.systemPrompt,
     appendSystemPrompt: args.appendSystemPrompt,
+    jsonSchema: parsedJsonSchema,
     verbose: args.verbose,
   });
 
