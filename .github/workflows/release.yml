@@ -58,8 +58,14 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "latest"
+          cache: npm
+
       - name: Install Dependencies
-        run: bun install
+        run: npm ci
 
       - name: Run Verification Checks
         run: |

@@ -20,7 +20,7 @@ Download the compiled standalone binary for your platform from [GitHub Releases]
 
 ```bash
 # Example for Linux / Android (ARM64)
-tar -xzf greg-v0.2.0-linux-arm64.tar.gz
+tar -xzf greg-v0.1.0-linux-arm64.tar.gz
 chmod +x greg
 sudo mv greg /usr/local/bin/
 ```
