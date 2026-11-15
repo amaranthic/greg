@@ -69,7 +69,7 @@ or
  * @returns Isolated ToolRegistry containing ReadFileTool, GlobTool, and GrepTool.
  */
 function createReadOnlyToolRegistry(): ToolRegistry {
-  const registry = new ToolRegistry();
+  const registry = new ToolRegistry({ includeDefaults: false });
   registry.register(new ReadFileTool());
   registry.register(new GlobTool());
   registry.register(new GrepTool());
