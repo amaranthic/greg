@@ -113,6 +113,9 @@ describe("Model Normalization & Credential Resolution", () => {
     const compatibleDefault = resolveProviderBaseUrl("compatible");
     expect(compatibleDefault).toBe("http://localhost:8080/v1");
 
+    const nvidiaDefault = resolveProviderBaseUrl("nvidiaNim");
+    expect(nvidiaDefault).toBe("https://integrate.api.nvidia.com/v1");
+
     const cliOverride = resolveProviderBaseUrl("openai", "https://custom.endpoint.com/v1");
     expect(cliOverride).toBe("https://custom.endpoint.com/v1");
   });
@@ -123,6 +126,14 @@ describe("Model Normalization & Credential Resolution", () => {
 
     const fallbackKey = resolveProviderApiKey("compatible");
     expect(fallbackKey).toBe("dummy");
+
+    process.env.NVIDIA_API_KEY = "nvapi-test-key";
+    try {
+      const nvidiaKey = resolveProviderApiKey("nvidiaNim");
+      expect(nvidiaKey).toBe("nvapi-test-key");
+    } finally {
+      delete process.env.NVIDIA_API_KEY;
+    }
   });
 
   it("resolves home directory correctly", () => {

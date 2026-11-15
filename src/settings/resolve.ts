@@ -196,6 +196,14 @@ export function resolveProviderApiKey(provider: string, cliApiKey?: string): str
     }
   }
 
+  // Handle special case for NVIDIA NIM API key alias
+  if (provider.toLowerCase() === "nvidianim" || provider.toLowerCase() === "nvidia") {
+    const nvidiaKey = process.env.NVIDIA_API_KEY ?? process.env.NVIDIA_NIM_API_KEY;
+    if (nvidiaKey && nvidiaKey.trim().length > 0) {
+      return nvidiaKey.trim();
+    }
+  }
+
   const envGeneric = process.env.API_KEY;
   if (envGeneric && envGeneric.trim().length > 0) {
     return envGeneric.trim();

@@ -74,6 +74,7 @@ export const defaultProviderBaseUrls: Readonly<Record<string, string>> = {
   mistral: "https://api.mistral.ai/v1",
   cohere: "https://api.cohere.com/v2",
   alibaba: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+  nvidianim: "https://integrate.api.nvidia.com/v1",
   compatible: "http://localhost:8080/v1",
 };
 
