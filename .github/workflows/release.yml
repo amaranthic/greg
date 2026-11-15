@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify-version:
+    name: Verify Tag & Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check-version.outputs.version }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Verify Version Match
+        id: check-version
+        run: |
+          PKG_VERSION=$(bun -e "console.log(require('./package.json').version)")
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME#v}"
+            echo "Tag Version: $TAG"
+            echo "Package Version: $PKG_VERSION"
+            if [ "$TAG" != "$PKG_VERSION" ]; then
+              echo "::error::Version mismatch! Git tag ($TAG) does not match package.json version ($PKG_VERSION)."
+              echo "Please update the version in package.json to match the tag before releasing."
+              exit 1
+            fi
+          fi
+          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+
+  build-and-release:
+    name: Build Multi-Arch Binaries & Release
+    needs: verify-version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Run Verification Checks
+        run: |
+          bun run format:check
+          bun run typecheck
+          bun test
+
+      - name: Compile Standalone Binaries
+        run: |
+          VERSION="${{ needs.verify-version.outputs.version }}"
+          mkdir -p release-assets
+
+          echo "Compiling for Linux x64..."
+          bun build --compile --minify --no-env-file --target=bun-linux-x64 ./src/main.ts --outfile ./bin-linux-x64/greg
+          tar -czf "release-assets/greg-v${VERSION}-linux-x64.tar.gz" -C ./bin-linux-x64 greg
+          cp ./bin-linux-x64/greg "release-assets/greg-v${VERSION}-linux-x64"
+
+          echo "Compiling for Linux ARM64..."
+          bun build --compile --minify --no-env-file --target=bun-linux-arm64 ./src/main.ts --outfile ./bin-linux-arm64/greg
+          tar -czf "release-assets/greg-v${VERSION}-linux-arm64.tar.gz" -C ./bin-linux-arm64 greg
+          cp ./bin-linux-arm64/greg "release-assets/greg-v${VERSION}-linux-arm64"
+
+          echo "Compiling for Android ARM64 (Bionic)..."
+          bun build --compile --minify --no-env-file --target=bun-linux-aarch64-android ./src/main.ts --outfile ./bin-android-arm64/greg
+          tar -czf "release-assets/greg-v${VERSION}-android-arm64.tar.gz" -C ./bin-android-arm64 greg
+          cp ./bin-android-arm64/greg "release-assets/greg-v${VERSION}-android-arm64"
+
+          echo "Compiling for macOS x64 (Intel)..."
+          bun build --compile --minify --no-env-file --target=bun-darwin-x64 ./src/main.ts --outfile ./bin-darwin-x64/greg
+          tar -czf "release-assets/greg-v${VERSION}-darwin-x64.tar.gz" -C ./bin-darwin-x64 greg
+          cp ./bin-darwin-x64/greg "release-assets/greg-v${VERSION}-darwin-x64"
+
+          echo "Compiling for macOS ARM64 (Apple Silicon)..."
+          bun build --compile --minify --no-env-file --target=bun-darwin-arm64 ./src/main.ts --outfile ./bin-darwin-arm64/greg
+          tar -czf "release-assets/greg-v${VERSION}-darwin-arm64.tar.gz" -C ./bin-darwin-arm64 greg
+          cp ./bin-darwin-arm64/greg "release-assets/greg-v${VERSION}-darwin-arm64"
+
+          echo "Compiling for Windows x64..."
+          bun build --compile --minify --no-env-file --target=bun-windows-x64 ./src/main.ts --outfile ./bin-windows-x64/greg.exe
+          zip -j "release-assets/greg-v${VERSION}-windows-x64.zip" ./bin-windows-x64/greg.exe
+          cp ./bin-windows-x64/greg.exe "release-assets/greg-v${VERSION}-windows-x64.exe"
+
+      - name: Generate Checksums
+        working-directory: release-assets
+        run: |
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Generate Release Notes
+        run: |
+          VERSION="${{ needs.verify-version.outputs.version }}"
+          TAG="${GITHUB_REF_NAME:-v$VERSION}"
+
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
+
+          echo "## Greg v${VERSION}" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "### What's Changed since \`${PREV_TAG}\`" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            git log "${PREV_TAG}..${TAG}" --pretty=format:"* %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" >> RELEASE_NOTES.md
+          else
+            echo "### What's Changed" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+            git log "${TAG}" --pretty=format:"* %s ([%h](https://github.com/${{ github.repository }}/commit/%H))" >> RELEASE_NOTES.md
+          fi
+
+          echo "" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Checksums (SHA256)" >> RELEASE_NOTES.md
+          echo "\`\`\`" >> RELEASE_NOTES.md
+          cat release-assets/SHA256SUMS.txt >> RELEASE_NOTES.md
+          echo "\`\`\`" >> RELEASE_NOTES.md
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          name: "greg v${{ needs.verify-version.outputs.version }}"
+          tag_name: ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

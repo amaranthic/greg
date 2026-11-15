@@ -1,6 +1,5 @@
 # greg
 
-[![npm version](https://img.shields.io/npm/v/@amaranthic/greg.svg?style=flat-square)](https://www.npmjs.com/package/@amaranthic/greg)
 [![Runtime](https://img.shields.io/badge/runtime-Bun-black.svg?style=flat-square)](https://bun.sh)
 [![Engine](https://img.shields.io/badge/engine-Hernex-blue.svg?style=flat-square)](https://github.com/amaranthic/harnex)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
@@ -15,10 +14,15 @@ git diff | greg "Review this patch for edge cases and regressions"
 
 ## ⚡ Quickstart
 
-### 1. Install
+### 1. Download Standalone Binary
+
+Download the compiled standalone binary for your platform from [GitHub Releases](https://github.com/amaranthic/greg/releases) (available for Linux x64/ARM64, Android ARM64, macOS Apple Silicon/Intel, and Windows x64):
 
 ```bash
-npm install -g @amaranthic/greg
+# Example for Linux / Android (ARM64)
+tar -xzf greg-v0.2.0-linux-arm64.tar.gz
+chmod +x greg
+sudo mv greg /usr/local/bin/
 ```
 
 ### 2. Configure Your Provider
