@@ -4,9 +4,10 @@
  */
 
 import { describe, expect, it } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { FileCheckpointStore, FileThreadStore } from "@amaranthic/hernex";
 import { gregVersion } from "../src/constants/index.js";
 
 describe("Greg CLI End-to-End Execution", () => {
@@ -436,6 +437,90 @@ describe("Greg CLI End-to-End Execution", () => {
       expect(parsed).toHaveProperty("exitCode", 4);
     } finally {
       await rm(tempHome, { recursive: true, force: true });
+    }
+  });
+
+  it("inspects recorded checkpoints with show and diff commands", async () => {
+    const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-cp-cli-home-"));
+    const tempWorkspace = await mkdtemp(path.join(os.tmpdir(), "greg-cp-cli-ws-"));
+    try {
+      const threadStore = new FileThreadStore({ homeDirectory: tempHome });
+      const checkpointStore = new FileCheckpointStore({ homeDirectory: tempHome });
+
+      const thread = await threadStore.createThread({
+        workingDirectory: tempWorkspace,
+        title: "Checkpoint Test Thread",
+      });
+
+      const testFilePath = path.join(tempWorkspace, "demo.txt");
+      await writeFile(testFilePath, "initial content\n", "utf-8");
+
+      await checkpointStore.createCheckpoint(thread.id, {
+        workingDirectory: tempWorkspace,
+        label: "Snapshot 1",
+        files: ["demo.txt"],
+      });
+
+      // 1. checkpoint list
+      const listProc = Bun.spawn(
+        ["bun", cliEntry, "checkpoint", "list", "--thread", thread.id, "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const listOutput = await new Response(listProc.stdout).text();
+      const listCode = await listProc.exited;
+      expect(listCode).toBe(0);
+      const listPayload = JSON.parse(listOutput);
+      expect(listPayload.length).toBe(1);
+      expect(listPayload[0].label).toBe("Snapshot 1");
+
+      // 2. checkpoint show
+      const showProc = Bun.spawn(
+        ["bun", cliEntry, "checkpoint", "show", "1", "--thread", thread.id, "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const showOutput = await new Response(showProc.stdout).text();
+      const showCode = await showProc.exited;
+      expect(showCode).toBe(0);
+      const showPayload = JSON.parse(showOutput);
+      expect(showPayload.sequence).toBe(1);
+      expect(showPayload.files.length).toBe(1);
+
+      // 3. checkpoint diff with --json
+      const diffJsonProc = Bun.spawn(
+        [
+          "bun",
+          cliEntry,
+          "checkpoint",
+          "diff",
+          "1",
+          "--thread",
+          thread.id,
+          "--home",
+          tempHome,
+          "--json",
+        ],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const diffJsonOutput = await new Response(diffJsonProc.stdout).text();
+      const diffJsonCode = await diffJsonProc.exited;
+      expect(diffJsonCode).toBe(0);
+      const diffPayload = JSON.parse(diffJsonOutput);
+      expect(diffPayload.sequence).toBe(1);
+      expect(diffPayload.files[0].relativePath).toBe("demo.txt");
+
+      // 4. checkpoint diff text format
+      const diffTextProc = Bun.spawn(
+        ["bun", cliEntry, "checkpoint", "diff", "1", "--thread", thread.id, "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const diffTextOutput = await new Response(diffTextProc.stdout).text();
+      const diffTextCode = await diffTextProc.exited;
+      expect(diffTextCode).toBe(0);
+      expect(diffTextOutput).toContain("Checkpoint: 1");
+      expect(diffTextOutput).toContain("demo.txt");
+    } finally {
+      await rm(tempHome, { recursive: true, force: true });
+      await rm(tempWorkspace, { recursive: true, force: true });
     }
   });
 });
