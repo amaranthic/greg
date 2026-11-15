@@ -454,17 +454,13 @@ if [ -n "${GITHUB_ACTIONS-}" ] && [ "${GITHUB_ACTIONS}" == "true" ]; then
 fi
 
 echo -e ""
-echo -e "${ORANGE}█▀▀█ █▀▀█ █▀▀▀ █▀▀█${NC}"
-echo -e "${ORANGE}█░▄▄ █▀▀▄ █▀▀▀ █░▄▄${NC}"
-echo -e "${ORANGE}▀▀▀▀ ▀  ▀ ▀▀▀▀ ▀▀▀▀${NC}"
-echo -e ""
 echo -e "${MUTED}The post-modern autonomous print agent, to start:${NC}"
 echo -e ""
 if [[ $path_added == "true" ]]; then
-    echo -e "exec \$SHELL   ${MUTED}# Reload PATH (or open a new terminal)${NC}"
+    echo -e "exec \$SHELL           ${MUTED}# Reload PATH (or open a new terminal)${NC}"
 fi
-echo -e "cd <project>  ${MUTED}# Open project directory${NC}"
-echo -e "greg          ${MUTED}# Run greg${NC}"
+echo -e "greg --help            ${MUTED}# Show help${NC}"
+echo -e "greg \"Hello World\"     ${MUTED}# Run prompt${NC}"
 echo -e ""
 echo -e "${MUTED}For more information visit ${NC}https://github.com/${REPO}"
 echo -e ""
