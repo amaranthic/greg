@@ -738,6 +738,7 @@ export async function executePrintRun(
             } else if (event.type === "error" && event.isFatal) {
               modelTurnFailed = true;
               exitCode = exitCodes.runtimeError;
+              logger.error(event.error.message);
             }
           }
         }
