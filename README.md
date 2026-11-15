@@ -14,15 +14,18 @@ git diff | greg "Review this patch for edge cases and regressions"
 
 ## ⚡ Quickstart
 
-### 1. Download Standalone Binary
+### 1. Install
 
-Download the compiled standalone binary for your platform from [GitHub Releases](https://github.com/amaranthic/greg/releases) (available for Linux x64/ARM64, Android ARM64, macOS Apple Silicon/Intel, and Windows x64):
+Install `greg` with the official installer (automatically detects your platform and downloads the standalone native binary):
 
 ```bash
-# Example for Linux / Android (ARM64)
-tar -xzf greg-v0.1.0-linux-arm64.tar.gz
-chmod +x greg
-sudo mv greg /usr/local/bin/
+curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash
+```
+
+Or install a specific version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash -s -- --version 0.1.0
 ```
 
 ### 2. Configure Your Provider
