@@ -10,7 +10,13 @@ import {
   FileThreadStore,
   ToolRegistry,
   type AgentReasoningLevel,
+  type BeforeTurnResult,
+  type ModelMessage,
+  type PermissionDecision,
+  type PostToolResult,
   type StepTokenUsage,
+  type StopDecision,
+  type TurnFinishReason,
 } from "@amaranthic/hernex";
 import { exitCodes, type ExitCode } from "../constants/index.js";
 import {
@@ -25,6 +31,7 @@ import {
   evaluateToolPermission,
   extractToolTarget,
   resolveExposedTools,
+  toUserFacingToolName,
   type ToolPolicyOptions,
 } from "../policy/index.js";
 import {
@@ -33,6 +40,14 @@ import {
   resolveProviderBaseUrl,
   type ResolvedConfiguration,
 } from "../settings/index.js";
+import {
+  executeCommandHook,
+  executePromptHook,
+  loadHooksConfig,
+  resolveMatchingHooks,
+  type HookInput,
+  type ResolvedHooksConfig,
+} from "../hooks/index.js";
 import { parseDurationMs } from "../utils/index.js";
 import { SignalLifecycle } from "./signals.js";
 import { readStreamJsonLines } from "./input.js";
@@ -303,13 +318,17 @@ export async function executePrintRun(
   let engine: AgentEngine;
   let permissionDeniedEncountered = false;
 
+  // Load effective project and global hooks configuration
+  const hooksConfig = await loadHooksConfig(workingDirectory, configuration.homeDirectory);
+
   const authHook = async (context: {
     readonly toolName: string;
     readonly parameters: unknown;
     readonly workingDirectory: string;
-  }) => {
-    const decision = evaluateToolPermission(context, policyOptions);
-    if (decision.decision === "deny") {
+  }): Promise<PermissionDecision> => {
+    // 1. Evaluate declarative permission policy
+    const policyDecision = evaluateToolPermission(context, policyOptions);
+    if (policyDecision.decision === "deny") {
       permissionDeniedEncountered = true;
       const target = extractToolTarget(
         context.toolName,
@@ -319,16 +338,246 @@ export async function executePrintRun(
       const denialRecord: PermissionDenialRecord = {
         tool: context.toolName,
         target,
-        reason: decision.reason,
+        reason: policyDecision.reason,
         timestamp: Date.now(),
       };
       permissionDenials.push(denialRecord);
       if (sink instanceof StreamJsonSink) {
         sink.emitPermissionDenial(denialRecord);
       }
-      logger.error(decision.reason);
+      logger.error(policyDecision.reason);
+      return policyDecision;
     }
-    return decision;
+
+    // 2. Evaluate PreToolUse hooks
+    const canonicalToolName = toUserFacingToolName(context.toolName) ?? context.toolName;
+    const matchingHooks = resolveMatchingHooks(
+      hooksConfig.PreToolUse,
+      canonicalToolName,
+      context.parameters,
+      context.workingDirectory,
+    );
+
+    let effectiveParameters = context.parameters;
+
+    for (const hook of matchingHooks) {
+      const hookInput: HookInput = {
+        sessionId: targetThreadId,
+        hookEvent: "PreToolUse",
+        projectDir: workingDirectory,
+        cwd: context.workingDirectory,
+        model: configuration.model,
+        turnIndex: engine ? engine.currentTurn + 1 : 1,
+        toolName: canonicalToolName,
+        toolInput: effectiveParameters,
+      };
+
+      const result = hook.type === "command"
+        ? await executeCommandHook(hook, hookInput)
+        : await executePromptHook(hook, hookInput, configuration);
+
+      if (result.nonBlockingError && result.errorMessage) {
+        logger.warn(result.errorMessage);
+      }
+
+      if (result.blocked) {
+        const reason = result.blockReason ?? `Tool ${canonicalToolName} blocked by PreToolUse hook`;
+        permissionDeniedEncountered = true;
+        const target = extractToolTarget(
+          context.toolName,
+          effectiveParameters,
+          context.workingDirectory,
+        );
+        const denialRecord: PermissionDenialRecord = {
+          tool: context.toolName,
+          target,
+          reason,
+          timestamp: Date.now(),
+        };
+        permissionDenials.push(denialRecord);
+        if (sink instanceof StreamJsonSink) {
+          sink.emitPermissionDenial(denialRecord);
+        }
+        logger.error(reason);
+        return { decision: "deny", reason };
+      }
+
+      if (result.updatedInput) {
+        effectiveParameters = result.updatedInput;
+      }
+    }
+
+    return {
+      decision: "allow",
+      ...(effectiveParameters !== context.parameters ? { updatedParameters: effectiveParameters } : {}),
+    };
+  };
+
+  const postToolHook = async (context: {
+    readonly toolName: string;
+    readonly parameters: unknown;
+    readonly result: unknown;
+    readonly isError: boolean;
+    readonly durationMs: number;
+    readonly workingDirectory: string;
+  }): Promise<PostToolResult | void> => {
+    const canonicalToolName = toUserFacingToolName(context.toolName) ?? context.toolName;
+    const matchingHooks = resolveMatchingHooks(
+      hooksConfig.PostToolUse,
+      canonicalToolName,
+      context.parameters,
+      context.workingDirectory,
+    );
+
+    if (matchingHooks.length === 0) {
+      return;
+    }
+
+    const additionalContexts: string[] = [];
+
+    for (const hook of matchingHooks) {
+      const hookInput: HookInput = {
+        sessionId: targetThreadId,
+        hookEvent: "PostToolUse",
+        projectDir: workingDirectory,
+        cwd: context.workingDirectory,
+        model: configuration.model,
+        turnIndex: engine ? engine.currentTurn : 1,
+        toolName: canonicalToolName,
+        toolInput: context.parameters,
+        toolStatus: context.isError ? "error" : "success",
+        toolDurationMs: context.durationMs,
+      };
+
+      const result = hook.type === "command"
+        ? await executeCommandHook(hook, hookInput)
+        : await executePromptHook(hook, hookInput, configuration);
+
+      if (result.nonBlockingError && result.errorMessage) {
+        logger.warn(result.errorMessage);
+      }
+
+      if (result.additionalContext) {
+        additionalContexts.push(result.additionalContext);
+      }
+    }
+
+    if (additionalContexts.length > 0) {
+      return {
+        additionalContext: additionalContexts.join("\n\n"),
+      };
+    }
+  };
+
+  const beforeTurnHook = async (context: {
+    readonly turnIndex: number;
+    readonly userPrompt: string;
+  }): Promise<BeforeTurnResult | void> => {
+    const matchingHooks = resolveMatchingHooks(hooksConfig.UserPromptSubmit);
+
+    if (matchingHooks.length === 0) {
+      return;
+    }
+
+    const additionalInstructions: string[] = [];
+
+    for (const hook of matchingHooks) {
+      const hookInput: HookInput = {
+        sessionId: targetThreadId,
+        hookEvent: "UserPromptSubmit",
+        projectDir: workingDirectory,
+        cwd: workingDirectory,
+        model: configuration.model,
+        turnIndex: context.turnIndex,
+        userPrompt: context.userPrompt,
+      };
+
+      const result = hook.type === "command"
+        ? await executeCommandHook(hook, hookInput)
+        : await executePromptHook(hook, hookInput, configuration);
+
+      if (result.nonBlockingError && result.errorMessage) {
+        logger.warn(result.errorMessage);
+      }
+
+      if (result.blocked) {
+        const reason = result.blockReason ?? "Turn vetoed by UserPromptSubmit hook";
+        logger.error(reason);
+        return { veto: true, vetoReason: reason };
+      }
+
+      if (result.additionalContext) {
+        additionalInstructions.push(result.additionalContext);
+      }
+    }
+
+    if (additionalInstructions.length > 0) {
+      return {
+        injectedInstructions: additionalInstructions.join("\n\n"),
+      };
+    }
+  };
+
+  const shouldStopHook = async (context: {
+    readonly turnIndex: number;
+    readonly finishReason: TurnFinishReason;
+    readonly transcript?: readonly ModelMessage[] | undefined;
+  }): Promise<StopDecision> => {
+    const matchingHooks = resolveMatchingHooks(hooksConfig.Stop);
+
+    if (matchingHooks.length === 0) {
+      return { shouldStop: true };
+    }
+
+    let lastAssistantText: string | undefined;
+    if (context.transcript && context.transcript.length > 0) {
+      for (let i = context.transcript.length - 1; i >= 0; i--) {
+        const message = context.transcript[i];
+        if (message && message.role === "assistant") {
+          if (typeof message.content === "string") {
+            lastAssistantText = message.content;
+            break;
+          } else if (Array.isArray(message.content)) {
+            lastAssistantText = (message.content as Array<{ type: string; text?: string }>)
+              .filter((c) => c.type === "text" && c.text)
+              .map((c) => c.text)
+              .join("\n");
+            break;
+          }
+        }
+      }
+    }
+
+    for (const hook of matchingHooks) {
+      const hookInput: HookInput = {
+        sessionId: targetThreadId,
+        hookEvent: "Stop",
+        projectDir: workingDirectory,
+        cwd: workingDirectory,
+        model: configuration.model,
+        turnIndex: context.turnIndex,
+        lastAssistantMessage: lastAssistantText,
+      };
+
+      const result = hook.type === "command"
+        ? await executeCommandHook(hook, hookInput)
+        : await executePromptHook(hook, hookInput, configuration);
+
+      if (result.nonBlockingError && result.errorMessage) {
+        logger.warn(result.errorMessage);
+      }
+
+      if (result.blocked) {
+        const reason = result.blockReason ?? "Verification failed";
+        logger.warn(`Stop hook vetoed turn completion: ${reason}`);
+        return {
+          shouldStop: false,
+          reminderPrompt: `Stop hook feedback:\n${reason}`,
+        };
+      }
+    }
+
+    return { shouldStop: true };
   };
 
   const candidateModels: readonly string[] = [
@@ -340,6 +589,13 @@ export async function executePrintRun(
     const normalized = normalizeModelString(targetModel);
     const candidateApiKey = resolveProviderApiKey(normalized.provider, configuration.apiKey);
     const candidateBaseUrl = resolveProviderBaseUrl(normalized.provider, configuration.baseUrl);
+
+    const agentHooks = {
+      onAuthorizeTool: authHook,
+      onPostTool: postToolHook,
+      onBeforeTurn: beforeTurnHook,
+      onShouldStop: shouldStopHook,
+    };
 
     if (!isNewThread && threadStore) {
       const metadata = await threadStore.getThread(targetThreadId);
@@ -361,9 +617,7 @@ export async function executePrintRun(
           persist: isPersistent,
           checkpoint: isPersistent,
           abortSignal: signalLifecycle.signal,
-          hooks: {
-            onAuthorizeTool: authHook,
-          },
+          hooks: agentHooks,
           ...(threadStore ? { threadStore } : {}),
           ...(checkpointStore ? { checkpointStore } : {}),
           ...(finalInstructions ? { instructions: finalInstructions } : {}),
@@ -387,9 +641,7 @@ export async function executePrintRun(
       persist: isPersistent,
       checkpoint: isPersistent,
       abortSignal: signalLifecycle.signal,
-      hooks: {
-        onAuthorizeTool: authHook,
-      },
+      hooks: agentHooks,
       ...(threadStore ? { threadStore } : {}),
       ...(checkpointStore ? { checkpointStore } : {}),
       ...(finalInstructions ? { instructions: finalInstructions } : {}),

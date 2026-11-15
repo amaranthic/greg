@@ -30,6 +30,36 @@ export const exitCodes = {
 export type ExitCode = (typeof exitCodes)[keyof typeof exitCodes];
 
 /**
+ * Hook subprocess exit code protocol.
+ *
+ * These codes are intentionally separate from Greg's own process exit codes (`exitCodes`).
+ * They define the communication contract between child hook processes and the Greg runtime.
+ *
+ * Exit code 0: Success. Execution continues. If stdout contains valid JSON with
+ *   `{ decision: "block" }`, the tool or turn is denied with the supplied reason.
+ *   If stdout contains `{ updatedInput }`, tool arguments are mutated before execution.
+ *   If stdout contains `{ additionalContext }`, the text is injected into the LLM context.
+ *
+ * Exit code 2: Explicit blocking veto. Dedicated veto protocol — aborts tool execution
+ *   or prevents turn completion. The hook's stderr is passed directly as the blocking
+ *   reason to the LLM or displayed to the user. This mirrors Claude Code's exit code 2
+ *   semantics but is applied strictly to hook child processes, never to Greg's own process.
+ *
+ * Any other non-zero code (e.g. 1, 127): Non-blocking warning. Tool execution is NOT
+ *   aborted. The error is logged to stderr and recorded in the run metrics, but the
+ *   agent run continues normally.
+ */
+export const hookExitCodes = {
+  /** Hook completed successfully; optionally carries structured JSON output. */
+  success: 0,
+  /** Explicit blocking veto: aborts tool or prevents stop. stderr is the reason. */
+  blockingVeto: 2,
+} as const;
+
+/** Type representing the two protocol-significant hook exit code values. */
+export type HookExitCode = (typeof hookExitCodes)[keyof typeof hookExitCodes];
+
+/**
  * Built-in default base URLs for each provider supported by the underlying Hernex engine.
  */
 export const defaultProviderBaseUrls: Readonly<Record<string, string>> = {
