@@ -134,6 +134,142 @@ describe("Greg CLI End-to-End Execution", () => {
     }
   });
 
+  it("manages thread lifecycle including create, show, transcript, fork, and delete", async () => {
+    const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-thread-lifecycle-"));
+    try {
+      // 1. thread create
+      const createProc = Bun.spawn(
+        ["bun", cliEntry, "thread", "create", "--title", "Feature branch", "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const createOutput = await new Response(createProc.stdout).text();
+      const createCode = await createProc.exited;
+      expect(createCode).toBe(0);
+      const created = JSON.parse(createOutput);
+      expect(created.title).toBe("Feature branch");
+      const threadId = created.id;
+
+      // 2. thread show
+      const showProc = Bun.spawn(
+        ["bun", cliEntry, "thread", "show", threadId, "--home", tempHome],
+        {
+          stdout: "pipe",
+          stderr: "pipe",
+        },
+      );
+      const showOutput = await new Response(showProc.stdout).text();
+      const showCode = await showProc.exited;
+      expect(showCode).toBe(0);
+      const shown = JSON.parse(showOutput);
+      expect(shown.id).toBe(threadId);
+
+      // 3. thread transcript
+      const transcriptProc = Bun.spawn(
+        ["bun", cliEntry, "thread", "transcript", threadId, "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const transcriptOutput = await new Response(transcriptProc.stdout).text();
+      const transcriptCode = await transcriptProc.exited;
+      expect(transcriptCode).toBe(0);
+      const entries = JSON.parse(transcriptOutput);
+      expect(Array.isArray(entries)).toBe(true);
+
+      // 4. thread fork
+      const forkProc = Bun.spawn(
+        [
+          "bun",
+          cliEntry,
+          "thread",
+          "fork",
+          threadId,
+          "--title",
+          "Forked experiment",
+          "--home",
+          tempHome,
+        ],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const forkOutput = await new Response(forkProc.stdout).text();
+      const forkCode = await forkProc.exited;
+      expect(forkCode).toBe(0);
+      const forked = JSON.parse(forkOutput);
+      expect(forked.title).toBe("Forked experiment");
+      expect(forked.id).not.toBe(threadId);
+
+      // 5. thread delete
+      const delProc = Bun.spawn(
+        ["bun", cliEntry, "thread", "delete", threadId, "--home", tempHome],
+        {
+          stdout: "pipe",
+          stderr: "pipe",
+        },
+      );
+      const delOutput = await new Response(delProc.stdout).text();
+      const delCode = await delProc.exited;
+      expect(delCode).toBe(0);
+      expect(delOutput).toContain(`Deleted thread "${threadId}"`);
+    } finally {
+      await rm(tempHome, { recursive: true, force: true });
+    }
+  });
+
+  it("prunes oldest threads with count argument and -y bypass flag", async () => {
+    const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-thread-prune-"));
+    try {
+      // Create 3 threads
+      for (let i = 1; i <= 3; i++) {
+        const createProc = Bun.spawn(
+          ["bun", cliEntry, "thread", "create", "--title", `Session ${i}`, "--home", tempHome],
+          { stdout: "pipe", stderr: "pipe" },
+        );
+        await createProc.exited;
+      }
+
+      // 1. Pruning without --yes in non-interactive environment fails safely
+      const rejectProc = Bun.spawn(["bun", cliEntry, "thread", "prune", "1", "--home", tempHome], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const rejectStderr = await new Response(rejectProc.stderr).text();
+      const rejectCode = await rejectProc.exited;
+      expect(rejectCode).toBe(1);
+      expect(rejectStderr).toContain("Pruning requires confirmation");
+
+      // 2. Prune 1 oldest thread with -y
+      const prune1Proc = Bun.spawn(
+        ["bun", cliEntry, "thread", "prune", "1", "-y", "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const prune1Output = await new Response(prune1Proc.stdout).text();
+      const prune1Code = await prune1Proc.exited;
+      expect(prune1Code).toBe(0);
+      expect(prune1Output.trim()).toBe("Pruned 1 thread(s).");
+
+      // Verify 2 threads remain
+      const listProc = Bun.spawn(["bun", cliEntry, "thread", "list", "--home", tempHome], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const listOutput = await new Response(listProc.stdout).text();
+      const listCode = await listProc.exited;
+      expect(listCode).toBe(0);
+      const remaining = JSON.parse(listOutput);
+      expect(remaining.length).toBe(2);
+
+      // 3. Prune all remaining with -1 and -y
+      const pruneAllProc = Bun.spawn(
+        ["bun", cliEntry, "thread", "prune", "-1", "-y", "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const pruneAllOutput = await new Response(pruneAllProc.stdout).text();
+      const pruneAllCode = await pruneAllProc.exited;
+      expect(pruneAllCode).toBe(0);
+      expect(pruneAllOutput.trim()).toBe("Pruned 2 thread(s).");
+    } finally {
+      await rm(tempHome, { recursive: true, force: true });
+    }
+  });
+
   it("accepts positional prompt and dispatches to engine", async () => {
     const proc = Bun.spawn(
       [
