@@ -264,4 +264,42 @@ describe("Greg CLI End-to-End Execution", () => {
     expect(exitCode).toBe(1);
     expect(stderr).toContain('Error: Invalid input format "xml"');
   });
+
+  it("executes in bare mode suppressing ambient configuration while preserving tools", async () => {
+    const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-bare-test-"));
+    try {
+      const proc = Bun.spawn(
+        [
+          "bun",
+          cliEntry,
+          "ping bare test",
+          "--bare",
+          "--verbose",
+          "--timeout",
+          "10ms",
+          "-o",
+          "json",
+          "-m",
+          "compatible/dummy",
+          "--home",
+          tempHome,
+        ],
+        {
+          stdout: "pipe",
+          stderr: "pipe",
+        },
+      );
+
+      const stdout = await new Response(proc.stdout).text();
+      const stderr = await new Response(proc.stderr).text();
+      const exitCode = await proc.exited;
+
+      expect(exitCode).toBe(4);
+      expect(stderr).toContain("(new (bare))");
+      const parsed = JSON.parse(stdout);
+      expect(parsed).toHaveProperty("exitCode", 4);
+    } finally {
+      await rm(tempHome, { recursive: true, force: true });
+    }
+  });
 });

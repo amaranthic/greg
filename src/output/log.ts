@@ -26,6 +26,7 @@ export class StderrLogger {
     readonly permissionMode: string;
     readonly exposedToolsCount: number;
     readonly isNewThread: boolean;
+    readonly isBare?: boolean;
   }): void {
     if (!this.isVerbose && process.stderr.isTTY !== true) {
       return;
@@ -33,9 +34,10 @@ export class StderrLogger {
 
     const modeIndicator = `[${info.permissionMode}]`;
     const threadStatus = info.isNewThread ? "new" : "resumed";
+    const bareIndicator = info.isBare ? " (bare)" : "";
 
     this.writeLine(
-      `greg: model=${info.model} thread=${info.threadId} (${threadStatus}) mode=${modeIndicator} tools=${info.exposedToolsCount}`,
+      `greg: model=${info.model} thread=${info.threadId} (${threadStatus}${bareIndicator}) mode=${modeIndicator} tools=${info.exposedToolsCount}`,
     );
   }
 

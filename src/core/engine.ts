@@ -94,6 +94,8 @@ export interface ExecutionOptions {
   readonly jsonSchema?: Record<string, unknown> | undefined;
   /** Whether verbose diagnostic output is enabled on standard error. */
   readonly verbose?: boolean | undefined;
+  /** Whether to run in bare mode, skipping ambient discovery and lifecycle hooks. */
+  readonly bare?: boolean | undefined;
 }
 
 /**
@@ -309,6 +311,8 @@ export async function executePrintRun(
     workingDirectory,
   });
 
+  const isBare = options.bare === true;
+
   logger.header({
     threadId: targetThreadId,
     model: configuration.model,
@@ -316,6 +320,7 @@ export async function executePrintRun(
     permissionMode: configuration.settings.permissionMode,
     exposedToolsCount: exposedTools.size,
     isNewThread,
+    isBare,
   });
 
   sink.emitInit();
@@ -330,8 +335,10 @@ export async function executePrintRun(
   let engine: AgentEngine;
   let permissionDeniedEncountered = false;
 
-  // Load effective project and global hooks configuration
-  const hooksConfig = await loadHooksConfig(workingDirectory, configuration.homeDirectory);
+  // Load effective project and global hooks configuration (suppressed in bare mode)
+  const hooksConfig = isBare
+    ? { PreToolUse: [], PostToolUse: [], UserPromptSubmit: [], Stop: [] }
+    : await loadHooksConfig(workingDirectory, configuration.homeDirectory);
 
   const authHook = async (context: {
     readonly toolName: string;

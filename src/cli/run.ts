@@ -222,6 +222,7 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     appendSystemPrompt: args.appendSystemPrompt,
     jsonSchema: parsedJsonSchema,
     verbose: args.verbose,
+    bare: args.bare,
   });
 
   process.exit(exitCode);
