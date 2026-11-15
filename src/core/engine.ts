@@ -385,9 +385,10 @@ export async function executePrintRun(
       };
 
       const hookOptions = { signal: signalLifecycle.signal };
-      const result = hook.type === "command"
-        ? await executeCommandHook(hook, hookInput, hookOptions)
-        : await executePromptHook(hook, hookInput, configuration, hookOptions);
+      const result =
+        hook.type === "command"
+          ? await executeCommandHook(hook, hookInput, hookOptions)
+          : await executePromptHook(hook, hookInput, configuration, hookOptions);
 
       if (result.nonBlockingError && result.errorMessage) {
         logger.warn(result.errorMessage);
@@ -422,7 +423,9 @@ export async function executePrintRun(
 
     return {
       decision: "allow",
-      ...(effectiveParameters !== context.parameters ? { updatedParameters: effectiveParameters } : {}),
+      ...(effectiveParameters !== context.parameters
+        ? { updatedParameters: effectiveParameters }
+        : {}),
     };
   };
 
@@ -463,9 +466,10 @@ export async function executePrintRun(
       };
 
       const hookOptions = { signal: signalLifecycle.signal };
-      const result = hook.type === "command"
-        ? await executeCommandHook(hook, hookInput, hookOptions)
-        : await executePromptHook(hook, hookInput, configuration, hookOptions);
+      const result =
+        hook.type === "command"
+          ? await executeCommandHook(hook, hookInput, hookOptions)
+          : await executePromptHook(hook, hookInput, configuration, hookOptions);
 
       if (result.nonBlockingError && result.errorMessage) {
         logger.warn(result.errorMessage);
@@ -507,9 +511,10 @@ export async function executePrintRun(
       };
 
       const hookOptions = { signal: signalLifecycle.signal };
-      const result = hook.type === "command"
-        ? await executeCommandHook(hook, hookInput, hookOptions)
-        : await executePromptHook(hook, hookInput, configuration, hookOptions);
+      const result =
+        hook.type === "command"
+          ? await executeCommandHook(hook, hookInput, hookOptions)
+          : await executePromptHook(hook, hookInput, configuration, hookOptions);
 
       if (result.nonBlockingError && result.errorMessage) {
         logger.warn(result.errorMessage);
@@ -575,9 +580,10 @@ export async function executePrintRun(
       };
 
       const hookOptions = { signal: signalLifecycle.signal };
-      const result = hook.type === "command"
-        ? await executeCommandHook(hook, hookInput, hookOptions)
-        : await executePromptHook(hook, hookInput, configuration, hookOptions);
+      const result =
+        hook.type === "command"
+          ? await executeCommandHook(hook, hookInput, hookOptions)
+          : await executePromptHook(hook, hookInput, configuration, hookOptions);
 
       if (result.nonBlockingError && result.errorMessage) {
         logger.warn(result.errorMessage);

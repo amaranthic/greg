@@ -111,10 +111,7 @@ describe("Hooks Config File Loader & Merging", () => {
       path.join(projectDir, ".greg", "config", "hooks.json"),
       JSON.stringify(projectConfig),
     );
-    await writeFile(
-      path.join(homeDir, "config", "hooks.json"),
-      JSON.stringify(globalConfig),
-    );
+    await writeFile(path.join(homeDir, "config", "hooks.json"), JSON.stringify(globalConfig));
 
     const resolved = await loadHooksConfig(projectDir, homeDir);
     expect(resolved.PreToolUse).toHaveLength(2);
@@ -160,10 +157,7 @@ describe("Hooks Config File Loader & Merging", () => {
       path.join(projectDir, ".greg", "config", "hooks.json"),
       JSON.stringify(projectConfig),
     );
-    await writeFile(
-      path.join(homeDir, "config", "hooks.json"),
-      JSON.stringify(globalConfig),
-    );
+    await writeFile(path.join(homeDir, "config", "hooks.json"), JSON.stringify(globalConfig));
 
     const resolved = await loadHooksConfig(projectDir, homeDir);
     expect(resolved.PreToolUse).toHaveLength(1);
@@ -207,10 +201,7 @@ describe("Hooks Config File Loader & Merging", () => {
   });
 
   it("returns empty hooks when no configuration files exist", async () => {
-    const resolved = await loadHooksConfig(
-      "/nonexistent/project/dir",
-      "/nonexistent/home/dir",
-    );
+    const resolved = await loadHooksConfig("/nonexistent/project/dir", "/nonexistent/home/dir");
     expect(resolved.PreToolUse).toHaveLength(0);
     expect(resolved.Stop).toHaveLength(0);
   });
@@ -272,12 +263,7 @@ describe("Hook Pattern Matching & `if` Condition Pre-Filtering", () => {
     expect((gitPushHooks[1] as CommandHook).command).toBe("echo 'unconditional bash check'");
 
     // Case 2: Bash running ls -> matches only unconditional hook
-    const lsHooks = resolveMatchingHooks(
-      matchers,
-      "Bash",
-      { command: "ls -la" },
-      process.cwd(),
-    );
+    const lsHooks = resolveMatchingHooks(matchers, "Bash", { command: "ls -la" }, process.cwd());
     expect(lsHooks).toHaveLength(1);
     expect((lsHooks[0] as CommandHook).command).toBe("echo 'unconditional bash check'");
 
@@ -343,7 +329,8 @@ describe("Command Hook Subprocess Runner & Exit Code Protocol", () => {
   it("handles exit code 0 with structured JSON output", async () => {
     const hook: CommandHook = {
       type: "command",
-      command: "echo '{\"additionalContext\":\"lint clean\",\"updatedInput\":{\"command\":\"echo modified\"}}'",
+      command:
+        'echo \'{"additionalContext":"lint clean","updatedInput":{"command":"echo modified"}}\'',
       shell: "bash",
       timeout: 10,
       once: false,
@@ -358,7 +345,7 @@ describe("Command Hook Subprocess Runner & Exit Code Protocol", () => {
   it("handles exit code 0 with structured block decision", async () => {
     const hook: CommandHook = {
       type: "command",
-      command: "echo '{\"decision\":\"block\",\"reason\":\"Security policy violation\"}'",
+      command: 'echo \'{"decision":"block","reason":"Security policy violation"}\'',
       shell: "bash",
       timeout: 10,
       once: false,
@@ -468,10 +455,7 @@ describe("Prompt Hook Model Resolution & Decision Parsing", () => {
       type: "prompt",
       prompt: "Verify input: $ARGUMENTS",
       model: "google/gemini-2.5-flash",
-      fallbackModels: [
-        "invalidProvider/bad-model",
-        "openai/gpt-4o",
-      ],
+      fallbackModels: ["invalidProvider/bad-model", "openai/gpt-4o"],
       timeout: 30,
       once: false,
     };

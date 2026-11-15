@@ -15,35 +15,6 @@ import {
 import { gregVersion } from "./constants/index.js";
 
 /**
- * Normalizes command line arguments to seamlessly accept both kebab-case and camelCase flags.
- *
- * @param argv - Raw argument vector.
- * @returns Normalized argument vector.
- */
-export function normalizeArgv(argv: readonly string[]): string[] {
-  let isDoubleDash = false;
-  return argv.map((arg) => {
-    if (arg === "--") {
-      isDoubleDash = true;
-      return arg;
-    }
-    if (isDoubleDash || !arg.startsWith("--") || arg.startsWith("---")) {
-      return arg;
-    }
-    const eqIdx = arg.indexOf("=");
-    if (eqIdx !== -1) {
-      const flag = arg.slice(2, eqIdx);
-      const val = arg.slice(eqIdx);
-      const camel = flag.replace(/-([a-z0-9])/gi, (_, c: string) => c.toUpperCase());
-      return `--${camel}${val}`;
-    }
-    const flag = arg.slice(2);
-    const camel = flag.replace(/-([a-z0-9])/gi, (_, c: string) => c.toUpperCase());
-    return `--${camel}`;
-  });
-}
-
-/**
  * Creates and constructs the authoritative Greg CLI program.
  *
  * @returns Root commander Command instance.
@@ -66,48 +37,51 @@ export function createProgram(): Command {
       "-p, --print [prompt]",
       "Run in print mode (default behavior for prompt or piped input)",
     )
-    .option("-o, --outputFormat <format>", "Output format: text | json | stream-json", "text")
-    .option("--inputFormat <format>", "Input format: text | stream-json", "text")
+    .option("-o, --output-format <format>", "Output format: text | json | stream-json", "text")
+    .option("--input-format <format>", "Input format: text | stream-json", "text")
     .option(
       "-m, --model <model>",
       "Model override (e.g. anthropic/claude-3-7-sonnet, compatible/dummy)",
     )
     .option(
-      "--fallbackModel <provider/modelId>",
+      "--fallback-model <provider/modelId>",
       "Comma-separated fallback models tried left-to-right on failure (e.g. google/gemini-flash-latest,openrouter/openrouter/free)",
     )
     .option(
       "-e, --effort <effort>",
       "Reasoning effort level: none | minimal | low | medium | high | xhigh | max",
     )
-    .option("-s, --maxTurns <number>", "Maximum turn loop steps before stopping")
+    .option("-s, --max-turns <number>", "Maximum turn loop steps before stopping")
     .option("-t, --timeout <timeout>", "Wall-clock timeout e.g. 30m, 10s")
-    .option("--jsonSchema <schema>", "JSON Schema for structured output validation")
-    .option("--systemPrompt <prompt>", "Override default system prompt instructions")
-    .option("--appendSystemPrompt <prompt>", "Append instructions to the system prompt")
+    .option("--json-schema <schema>", "JSON Schema for structured output validation")
+    .option("--system-prompt <prompt>", "Override default system prompt instructions")
+    .option("--append-system-prompt <prompt>", "Append instructions to the system prompt")
     .option(
-      "--permissionMode <mode>",
+      "--permission-mode <mode>",
       "Permission mode: default | acceptEdits | plan | bypassPermissions",
     )
-    .option("--allowedTools <rules>", "Tool rules to allow without prompting (e.g. 'Bash(git *)')")
-    .option("--disallowedTools <rules>", "Tool rules to deny (always takes precedence over allows)")
+    .option("--allowed-tools <rules>", "Tool rules to allow without prompting (e.g. 'Bash(git *)')")
+    .option(
+      "--disallowed-tools <rules>",
+      "Tool rules to deny (always takes precedence over allows)",
+    )
     .option(
       "--tools <tools>",
       "Filter exposed tools catalogue (e.g. 'default', 'readFile,writeFile', '' for none)",
     )
-    .option("--dangerouslySkipPermissions", "Bypass all tool permission checks")
+    .option("--dangerously-skip-permissions", "Bypass all tool permission checks")
     .option("-c, --continue", "Continue the latest conversation thread in the workspace")
     .option("-r, --resume <id>", "Resume a specific conversation thread by ID")
     .option(
-      "--resumeSessionAt <index>",
+      "--resume-session-at <index>",
       "Branch conversation at a specific transcript sequence index",
     )
-    .option("--noSessionPersistence", "Run ephemerally without persisting history or snapshots")
+    .option("--no-session-persistence", "Run ephemerally without persisting history or snapshots")
     .option("--home <dir>", "Override state storage and configuration home directory")
-    .option("--bare", "Suppress loading persistent settings files")
+    .option("--bare", "Suppress hooks, ambient instruction discovery, and persistent settings")
     .option("--verbose", "Emit diagnostic tool activity and status to stderr")
-    .option("--apiKey <key>", "Explicit provider API key override")
-    .option("--baseUrl <url>", "Explicit provider base URL override")
+    .option("--api-key <key>", "Explicit provider API key override")
+    .option("--base-url <url>", "Explicit provider base URL override")
     .action(async (promptArgument?: unknown) => {
       const options = program.opts<Record<string, unknown>>();
       const effectivePrompt =
@@ -117,8 +91,11 @@ export function createProgram(): Command {
             ? options.print
             : undefined;
 
+      const isNoSessionPersistence = options.sessionPersistence === false;
+
       const runArgs: RunCommandArgs = {
         ...options,
+        noSessionPersistence: isNoSessionPersistence ? true : undefined,
         prompt: effectivePrompt,
       };
 
@@ -135,4 +112,4 @@ export function createProgram(): Command {
 
 // Execute CLI
 const program = createProgram();
-await program.parseAsync(normalizeArgv(process.argv));
+await program.parseAsync(process.argv);

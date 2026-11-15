@@ -115,7 +115,7 @@ export function createCheckpointsCommand(): Command {
     .command("restore <id>")
     .description("Restore workspace files to their recorded pre-mutation state")
     .option("-t, --thread <id>", "Safe thread identifier (defaults to latest thread in workspace)")
-    .option("--dryRun", "Preflight inspect the restoration plan without touching disk files")
+    .option("--dry-run", "Preflight inspect the restoration plan without touching disk files")
     .option("--force", "Force restore, overwriting uncommitted external conflicting changes")
     .option("--home <dir>", "Override home directory path")
     .action(async (id: string, options: CheckpointSubcommandOptions, cmd: Command) => {

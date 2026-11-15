@@ -102,10 +102,7 @@ function interpolateEnvTemplate(value: string): string {
  * @param input - Structured hook input payload.
  * @returns Fully populated process environment object.
  */
-export function buildHookEnvironment(
-  hook: CommandHook,
-  input: HookInput,
-): NodeJS.ProcessEnv {
+export function buildHookEnvironment(hook: CommandHook, input: HookInput): NodeJS.ProcessEnv {
   const customEnv: Record<string, string> = {};
 
   if (hook.env) {
@@ -125,7 +122,9 @@ export function buildHookEnvironment(
     GREG_VERSION: gregVersion,
     ...(input.toolName ? { GREG_TOOL_NAME: input.toolName } : {}),
     ...(input.toolStatus ? { GREG_TOOL_STATUS: input.toolStatus } : {}),
-    ...(input.toolDurationMs !== undefined ? { GREG_TOOL_DURATION_MS: String(input.toolDurationMs) } : {}),
+    ...(input.toolDurationMs !== undefined
+      ? { GREG_TOOL_DURATION_MS: String(input.toolDurationMs) }
+      : {}),
     ...customEnv,
   };
 }

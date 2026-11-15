@@ -29,11 +29,7 @@ export {
   type ResolvedHooksConfig,
 } from "./loader.js";
 
-export {
-  matchesToolNamePattern,
-  evaluateIfCondition,
-  resolveMatchingHooks,
-} from "./matcher.js";
+export { matchesToolNamePattern, evaluateIfCondition, resolveMatchingHooks } from "./matcher.js";
 
 export {
   executeCommandHook,

@@ -102,10 +102,7 @@ export function resolvePromptHookCandidateModels(
   configuration: ResolvedConfiguration,
 ): string[] {
   const candidates: string[] = [];
-  const rawList = [
-    hook.model ?? configuration.model,
-    ...(hook.fallbackModels ?? []),
-  ];
+  const rawList = [hook.model ?? configuration.model, ...(hook.fallbackModels ?? [])];
 
   for (const raw of rawList) {
     if (!raw || raw.trim().length === 0) {

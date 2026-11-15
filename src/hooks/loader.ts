@@ -6,12 +6,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import {
-  hooksConfigSchema,
-  type HookEvent,
-  type HookMatcher,
-  type HooksConfig,
-} from "./types.js";
+import { hooksConfigSchema, type HookEvent, type HookMatcher, type HooksConfig } from "./types.js";
 
 /**
  * Resolved, merged collection of hook matchers categorized by lifecycle event.
@@ -126,12 +121,7 @@ export async function loadHooksConfig(
     return emptyResolvedHooks;
   }
 
-  const events: readonly HookEvent[] = [
-    "PreToolUse",
-    "PostToolUse",
-    "UserPromptSubmit",
-    "Stop",
-  ];
+  const events: readonly HookEvent[] = ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop"];
 
   const merged: Record<HookEvent, HookMatcher[]> = {
     PreToolUse: [],

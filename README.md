@@ -46,10 +46,10 @@ greg config set model openai/gpt-5
 greg "Explain the architecture of src/core"
 
 # Autonomous coding with safe workspace file edits
-greg "Refactor src/utils/format.ts to export formatDuration" --permissionMode acceptEdits
+greg "Refactor src/utils/format.ts to export formatDuration" --permission-mode acceptEdits
 
 # Allow specific shell test commands
-greg "Fix failing tests" --permissionMode acceptEdits --allowedTools "Bash(bun test *)"
+greg "Fix failing tests" --permission-mode acceptEdits --allowed-tools "Bash(bun test *)"
 ```
 
 ---
@@ -69,7 +69,7 @@ greg "Fix failing tests" --permissionMode acceptEdits --allowedTools "Bash(bun t
   - `bypassPermissions`: Full autonomous execution.
 - **🔒 Scoped Wildcard Security**:
   - Concise PascalCase tool format: `Read`, `Write`, `Edit`, `Bash`, `Glob`, `Grep`, `WebFetch`, `WebSearch`.
-  - Scoped allow rules strictly enforce boundaries (e.g. `--allowedTools "Read(src/*)"` allows `src/`, but immediately denies reading outside files).
+  - Scoped allow rules strictly enforce boundaries (e.g. `--allowed-tools "Read(src/*)"` allows `src/`, but immediately denies reading outside files).
   - Background processes are seamlessly handled—`taskManager` is automatically coupled to `Bash` authorization.
 - **🔄 Resumable Threads**: Seamless multi-turn session continuation with `-c` (latest thread) or `-r <id>`.
 
@@ -82,22 +82,22 @@ greg "Fix failing tests" --permissionMode acceptEdits --allowedTools "Bash(bun t
 greg "List exported symbols in src/settings/index.ts" -o json | jq -r '.result'
 
 # Structured output strictly validated against a JSON Schema
-greg "List 3 release highlights" --jsonSchema '{"type":"object","properties":{"items":{"type":"array"}},"required":["items"]}'
+greg "List 3 release highlights" --json-schema '{"type":"object","properties":{"items":{"type":"array"}},"required":["items"]}'
 
 # Fallback model chain tried left-to-right on failure
-greg "Deep code refactoring" -m anthropic/claude-3-7-sonnet --fallbackModel google/gemini-flash-latest,openrouter/openrouter/free
+greg "Deep code refactoring" -m anthropic/claude-3-7-sonnet --fallback-model google/gemini-flash-latest,openrouter/openrouter/free
 
 # Stream real-time NDJSON events
 greg "Build project and inspect compiler output" -o stream-json --verbose
 
 # Bidirectional stream-json agent pipeline
-cat prompts.ndjson | greg --inputFormat stream-json --outputFormat stream-json
+cat prompts.ndjson | greg --input-format stream-json --output-format stream-json
 
 # Run with strictly scoped read and shell permissions
-greg "Audit package.json dependencies" --tools "Read,Bash" --allowedTools "Read(package.json),Bash(npm audit)"
+greg "Audit package.json dependencies" --tools "Read,Bash" --allowed-tools "Read(package.json),Bash(npm audit)"
 
 # Preflight inspect a checkpoint restore without touching files
-greg checkpoints restore 1 --dryRun
+greg checkpoints restore 1 --dry-run
 
 # Continue the conversation in the same thread
 greg -c "Now add unit tests for those changes"
@@ -107,24 +107,31 @@ greg -c "Now add unit tests for those changes"
 
 ## 🎛️ Primary CLI Options
 
-| Flag                           | Description                                                               | Default          |
-| :----------------------------- | :------------------------------------------------------------------------ | :--------------- |
-| `-p, --print`                  | Run non-interactively in print mode                                       | Active           |
-| `-o, --outputFormat <format>`  | `text` \| `json` \| `stream-json`                                         | `text`           |
-| `--inputFormat <format>`       | `text` \| `stream-json` (bidirectional stdin streaming)                   | `text`           |
-| `-m, --model <provider/model>` | Frontier model override                                                   | `dummy`          |
-| `--fallbackModel <models>`     | Comma-separated fallback models tried left-to-right on failure            | `[]`             |
-| `--jsonSchema <schema>`        | JSON Schema string for structured output validation                       | —                |
-| `-e, --effort <level>`         | Reasoning effort (`none`, `low`, `medium`, `high`, `max`)                 | Provider default |
-| `-s, --maxTurns <number>`      | Maximum turn loop iterations                                              | `50`             |
-| `-t, --timeout <duration>`     | Wall-clock timeout (e.g. `30m`, `10s`)                                    | `30m`            |
-| `--permissionMode <mode>`      | `default` \| `acceptEdits` \| `plan` \| `bypassPermissions`               | `default`        |
-| `--allowedTools <rules>`       | Allow specific tools (e.g. `Bash(git *)`, `Write(src/*)`, `Read(docs/*)`) | `[]`             |
-| `--disallowedTools <rules>`    | Deny specific tools (always overrides allows)                             | `[]`             |
-| `--tools <names>`              | Filter exposed tool catalogue (e.g. `Read,Bash`; `""` fails closed)       | `default`        |
-| `-c, --continue`               | Continue latest workspace thread session                                  | —                |
-| `-r, --resume <id>`            | Resume a specific thread session by ID                                    | —                |
-| `--home <dir>`                 | Override state storage and configuration directory                        | `~/.greg`        |
+| Flag                             | Description                                                               | Default          |
+| :------------------------------- | :------------------------------------------------------------------------ | :--------------- |
+| `-p, --print`                    | Run non-interactively in print mode                                       | Active           |
+| `-o, --output-format <format>`   | `text` \| `json` \| `stream-json`                                         | `text`           |
+| `--input-format <format>`        | `text` \| `stream-json` (bidirectional stdin streaming)                   | `text`           |
+| `-m, --model <provider/model>`   | Frontier model override                                                   | `dummy`          |
+| `--fallback-model <models>`      | Comma-separated fallback models tried left-to-right on failure            | `[]`             |
+| `--json-schema <schema>`         | JSON Schema string for structured output validation                       | —                |
+| `-e, --effort <level>`           | Reasoning effort (`none`, `low`, `medium`, `high`, `max`)                 | Provider default |
+| `-s, --max-turns <number>`       | Maximum turn loop iterations                                              | `50`             |
+| `-t, --timeout <duration>`       | Wall-clock timeout (e.g. `30m`, `10s`)                                    | `30m`            |
+| `--permission-mode <mode>`       | `default` \| `acceptEdits` \| `plan` \| `bypassPermissions`               | `default`        |
+| `--allowed-tools <rules>`        | Allow specific tools (e.g. `Bash(git *)`, `Write(src/*)`, `Read(docs/*)`) | `[]`             |
+| `--disallowed-tools <rules>`     | Deny specific tools (always overrides allows)                             | `[]`             |
+| `--tools <names>`                | Filter exposed tool catalogue (e.g. `Read,Bash`; `""` fails closed)       | `default`        |
+| `--dangerously-skip-permissions` | Bypass all tool permission checks                                         | —                |
+| `-c, --continue`                 | Continue latest workspace thread session                                  | —                |
+| `-r, --resume <id>`              | Resume a specific thread session by ID                                    | —                |
+| `--resume-session-at <index>`    | Branch conversation at a specific transcript sequence index               | —                |
+| `--no-session-persistence`       | Run ephemerally without persisting history or snapshots                   | —                |
+| `--home <dir>`                   | Override state storage and configuration directory                        | `~/.greg`        |
+| `--bare`                         | Suppress hooks, ambient instruction discovery, and persistent settings    | —                |
+| `--verbose`                      | Emit diagnostic tool activity and status to stderr                        | —                |
+| `--api-key <key>`                | Explicit provider API key override                                        | —                |
+| `--base-url <url>`               | Explicit provider base URL override                                       | —                |
 
 ---
 

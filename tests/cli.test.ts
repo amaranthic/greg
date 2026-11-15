@@ -36,6 +36,10 @@ describe("Greg CLI End-to-End Execution", () => {
 
     expect(exitCode).toBe(0);
     expect(output).toContain("The post-modern autonomous print agent");
+    expect(output).toContain("--output-format");
+    expect(output).toContain("--input-format");
+    expect(output).toContain("--fallback-model");
+    expect(output).toContain("--json-schema");
     expect(output).toContain("config");
     expect(output).toContain("threads");
     expect(output).toContain("checkpoints");
@@ -139,7 +143,7 @@ describe("Greg CLI End-to-End Execution", () => {
         "--timeout",
         "10ms",
         "--bare",
-        "--noSessionPersistence",
+        "--no-session-persistence",
         "-o",
         "json",
         "-m",
@@ -194,7 +198,7 @@ describe("Greg CLI End-to-End Execution", () => {
   });
 
   it("rejects malformed --json-schema with exit code 1", async () => {
-    const proc = Bun.spawn(["bun", cliEntry, "test prompt", "--jsonSchema", "{not valid json"], {
+    const proc = Bun.spawn(["bun", cliEntry, "test prompt", "--json-schema", "{not valid json"], {
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -206,7 +210,7 @@ describe("Greg CLI End-to-End Execution", () => {
   });
 
   it("rejects non-object --json-schema with exit code 1", async () => {
-    const proc = Bun.spawn(["bun", cliEntry, "test prompt", "--jsonSchema", '["an", "array"]'], {
+    const proc = Bun.spawn(["bun", cliEntry, "test prompt", "--json-schema", '["an", "array"]'], {
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -219,7 +223,7 @@ describe("Greg CLI End-to-End Execution", () => {
 
   it("rejects invalid provider in --fallback-model with exit code 1", async () => {
     const proc = Bun.spawn(
-      ["bun", cliEntry, "test prompt", "--fallbackModel", "unknownprovider/model-x"],
+      ["bun", cliEntry, "test prompt", "--fallback-model", "unknownprovider/model-x"],
       {
         stdout: "pipe",
         stderr: "pipe",
@@ -234,7 +238,7 @@ describe("Greg CLI End-to-End Execution", () => {
 
   it("rejects --input-format=stream-json when --output-format is not stream-json", async () => {
     const proc = Bun.spawn(
-      ["bun", cliEntry, "--inputFormat", "stream-json", "--outputFormat", "text"],
+      ["bun", cliEntry, "--input-format", "stream-json", "--output-format", "text"],
       {
         stdout: "pipe",
         stderr: "pipe",
@@ -250,7 +254,7 @@ describe("Greg CLI End-to-End Execution", () => {
   });
 
   it("rejects invalid --input-format value with exit code 1", async () => {
-    const proc = Bun.spawn(["bun", cliEntry, "test prompt", "--inputFormat", "xml"], {
+    const proc = Bun.spawn(["bun", cliEntry, "test prompt", "--input-format", "xml"], {
       stdout: "pipe",
       stderr: "pipe",
     });

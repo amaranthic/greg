@@ -18,12 +18,7 @@ export type HookType = z.infer<typeof hookTypeSchema>;
 /**
  * Supported hook events that Greg fires during the agent lifecycle.
  */
-export const hookEventSchema = z.enum([
-  "PreToolUse",
-  "PostToolUse",
-  "UserPromptSubmit",
-  "Stop",
-]);
+export const hookEventSchema = z.enum(["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop"]);
 
 /**
  * Type representing one of the valid hook event names.
