@@ -253,9 +253,9 @@ export async function executePromptHook(
       let turnText = "";
 
       try {
-        for await (const event of engine.runTurn({ prompt: userPrompt })) {
-          if (event.type === "token_delta") {
-            turnText += event.delta;
+        for await (const event of engine.runTurn(userPrompt)) {
+          if (event.type === "tokenDelta") {
+            turnText += event.text;
           }
         }
       } finally {

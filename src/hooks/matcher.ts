@@ -108,7 +108,7 @@ export function resolveMatchingHooks(
 
     for (const hook of matcher.hooks) {
       // Evaluate if condition if toolName and toolInput are provided
-      if (toolName && hook.if) {
+      if (toolName && "if" in hook && hook.if) {
         const matchesIf = evaluateIfCondition(toolName, toolInput, workingDirectory, hook.if);
         if (!matchesIf) {
           continue;

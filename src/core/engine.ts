@@ -13,7 +13,6 @@ import {
   type BeforeTurnResult,
   type ModelMessage,
   type PermissionDecision,
-  type PostToolResult,
   type StepTokenUsage,
   type StopDecision,
   type TurnFinishReason,
@@ -51,6 +50,14 @@ import {
 import { parseDurationMs } from "../utils/index.js";
 import { SignalLifecycle } from "./signals.js";
 import { readStreamJsonLines } from "./input.js";
+
+/**
+ * Internal result structure for PostTool hooks.
+ */
+interface PostToolResult {
+  readonly updatedResult?: unknown | undefined;
+  readonly additionalContext?: string | undefined;
+}
 
 /**
  * Execution parameters driving a single Greg run.
@@ -402,7 +409,7 @@ export async function executePrintRun(
         return { decision: "deny", reason };
       }
 
-      if (result.updatedInput) {
+      if ("updatedInput" in result && result.updatedInput) {
         effectiveParameters = result.updatedInput;
       }
     }

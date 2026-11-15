@@ -194,17 +194,17 @@ export interface HookInput {
   /** Current agent turn index (1-based). */
   readonly turnIndex: number;
   /** Tool name, present for PreToolUse and PostToolUse events. */
-  readonly toolName?: string;
+  readonly toolName?: string | undefined;
   /** Serialized tool input arguments, present for PreToolUse and PostToolUse events. */
-  readonly toolInput?: unknown;
+  readonly toolInput?: unknown | undefined;
   /** Tool execution status, present for PostToolUse events. */
-  readonly toolStatus?: "success" | "error";
+  readonly toolStatus?: "success" | "error" | undefined;
   /** Tool execution duration in milliseconds, present for PostToolUse events. */
-  readonly toolDurationMs?: number;
+  readonly toolDurationMs?: number | undefined;
   /** User prompt text, present for UserPromptSubmit events. */
-  readonly userPrompt?: string;
+  readonly userPrompt?: string | undefined;
   /** Last assistant message text, present for Stop events. */
-  readonly lastAssistantMessage?: string;
+  readonly lastAssistantMessage?: string | undefined;
 }
 
 /**

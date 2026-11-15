@@ -403,6 +403,8 @@ describe("Command Hook Subprocess Runner & Exit Code Protocol", () => {
 describe("Prompt Hook Model Resolution & Decision Parsing", () => {
   const dummyConfig: ResolvedConfiguration = {
     model: "anthropic/claude-3-5-sonnet",
+    provider: "anthropic",
+    modelId: "claude-3-5-sonnet",
     fallbackModels: ["google/gemini-2.5-flash"],
     apiKey: "dummy-key",
     baseUrl: "http://localhost:8080/v1",
