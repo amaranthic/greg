@@ -398,6 +398,48 @@ describe("Command Hook Subprocess Runner & Exit Code Protocol", () => {
     expect(result.nonBlockingError).toBe(true);
     expect(result.errorMessage).toContain("non-blocking code 1");
   });
+
+  it("respects timeoutMs and terminates long-running process safely", async () => {
+    const hook: CommandHook = {
+      type: "command",
+      command: "sleep 10",
+      shell: "bash",
+      timeout: 10,
+      timeoutMs: 150,
+      once: false,
+    };
+
+    const startTime = Date.now();
+    const result = await executeCommandHook(hook, baseInput);
+    const duration = Date.now() - startTime;
+
+    expect(result.blocked).toBe(true);
+    expect(result.blockReason).toContain("timed out after 150ms");
+    expect(duration).toBeLessThan(2000);
+  });
+
+  it("terminates child process immediately when AbortSignal triggers", async () => {
+    const hook: CommandHook = {
+      type: "command",
+      command: "sleep 10",
+      shell: "bash",
+      timeout: 10,
+      once: false,
+    };
+
+    const abortController = new AbortController();
+    setTimeout(() => {
+      abortController.abort();
+    }, 100);
+
+    const startTime = Date.now();
+    const result = await executeCommandHook(hook, baseInput, { signal: abortController.signal });
+    const duration = Date.now() - startTime;
+
+    expect(result.blocked).toBe(true);
+    expect(result.blockReason).toContain("aborted by signal");
+    expect(duration).toBeLessThan(2000);
+  });
 });
 
 describe("Prompt Hook Model Resolution & Decision Parsing", () => {

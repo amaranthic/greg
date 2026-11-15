@@ -48,6 +48,8 @@ export const commandHookSchema = z.object({
   shell: z.enum(["bash", "powershell"]).default("bash"),
   /** Timeout in seconds before the child process is killed. Defaults to 60s. */
   timeout: z.number().positive().default(60),
+  /** Timeout in milliseconds before the child process is killed. If specified, overrides `timeout`. */
+  timeoutMs: z.number().positive().optional(),
   /** Text shown in CLI output while this hook is running. */
   statusMessage: z.string().optional(),
   /** If true, deregistered automatically after one successful execution. */
@@ -100,6 +102,8 @@ export const promptHookSchema = z.object({
   fallbackModels: z.array(z.string()).default([]),
   /** Timeout in seconds for the LLM evaluation call. Defaults to 30s. */
   timeout: z.number().positive().default(30),
+  /** Timeout in milliseconds for the LLM evaluation call. If specified, overrides `timeout`. */
+  timeoutMs: z.number().positive().optional(),
   /** Text shown in CLI output while this hook is evaluating. */
   statusMessage: z.string().optional(),
   /** If true, deregistered automatically after one successful execution. */

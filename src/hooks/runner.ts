@@ -3,9 +3,60 @@
  * @packageDocumentation
  */
 
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { gregVersion, hookExitCodes } from "../constants/index.js";
 import type { CommandHook, HookInput, HookOutput } from "./types.js";
+
+/**
+ * Options controlling command hook execution lifecycle and cancellation.
+ */
+export interface CommandHookExecutionOptions {
+  /** Optional cancellation signal to gracefully abort the child process. */
+  readonly signal?: AbortSignal | undefined;
+}
+
+/** Set of actively running child processes for emergency termination. */
+const activeHookProcesses = new Set<ChildProcess>();
+
+/**
+ * Forcefully terminates all currently active hook child processes and their process groups.
+ */
+export function killAllActiveHookProcesses(): void {
+  for (const child of activeHookProcesses) {
+    killChildProcessGroup(child, "SIGKILL");
+  }
+  activeHookProcesses.clear();
+}
+
+/**
+ * Kills a child process and its process group safely across platforms.
+ *
+ * @param child - Child process to terminate.
+ * @param signal - Signal to send.
+ */
+function killChildProcessGroup(child: ChildProcess, signal: NodeJS.Signals = "SIGKILL"): void {
+  if (!child.pid || child.killed) {
+    return;
+  }
+  try {
+    if (process.platform !== "win32") {
+      try {
+        process.kill(-child.pid, signal);
+      } catch {
+        child.kill(signal);
+      }
+    } else {
+      child.kill(signal);
+    }
+  } catch {
+    // Child process already terminated
+  }
+}
+
+// Emergency process exit hook ensuring child hook processes are never orphaned
+process.once("exit", () => {
+  killAllActiveHookProcesses();
+});
 
 /**
  * Result returned by the command hook runner.
@@ -85,6 +136,7 @@ export function buildHookEnvironment(
  *
  * @param hook - Target command hook configuration.
  * @param input - Structured hook input payload.
+ * @param options - Optional execution controls such as cancellation signal.
  * @returns A promise resolving to the interpreted CommandHookResult.
  *
  * @example
@@ -98,10 +150,21 @@ export function buildHookEnvironment(
 export async function executeCommandHook(
   hook: CommandHook,
   input: HookInput,
+  options?: CommandHookExecutionOptions,
 ): Promise<CommandHookResult> {
-  const timeoutMs = hook.timeout * 1000;
+  const timeoutMs = hook.timeoutMs !== undefined ? hook.timeoutMs : hook.timeout * 1000;
   const envVars = buildHookEnvironment(hook, input);
   const shellOption = hook.shell === "powershell" ? "pwsh" : true;
+
+  if (options?.signal?.aborted) {
+    return {
+      blocked: true,
+      blockReason: "Hook execution aborted by signal",
+      nonBlockingError: false,
+      stdout: "",
+      stderr: "",
+    };
+  }
 
   return new Promise<CommandHookResult>((resolve) => {
     let stdoutBuffer = "";
@@ -113,15 +176,49 @@ export async function executeCommandHook(
       env: envVars,
       shell: shellOption,
       windowsHide: true,
+      detached: process.platform !== "win32",
     });
+
+    activeHookProcesses.add(child);
+
+    const cleanupChild = (): void => {
+      clearTimeout(timeoutTimer);
+      if (options?.signal) {
+        options.signal.removeEventListener("abort", onAbort);
+      }
+      activeHookProcesses.delete(child);
+    };
+
+    const onAbort = (): void => {
+      if (!settled) {
+        settled = true;
+        cleanupChild();
+        killChildProcessGroup(child, "SIGKILL");
+        resolve({
+          blocked: true,
+          blockReason: `Hook execution aborted by signal: "${hook.command}"`,
+          nonBlockingError: false,
+          stdout: stdoutBuffer,
+          stderr: stderrBuffer,
+        });
+      }
+    };
+
+    if (options?.signal) {
+      options.signal.addEventListener("abort", onAbort, { once: true });
+    }
 
     const timeoutTimer = setTimeout(() => {
       if (!settled) {
         settled = true;
-        child.kill("SIGKILL");
+        cleanupChild();
+        killChildProcessGroup(child, "SIGTERM");
+        setTimeout(() => {
+          killChildProcessGroup(child, "SIGKILL");
+        }, 100).unref();
         resolve({
           blocked: true,
-          blockReason: `Hook execution timed out after ${hook.timeout} seconds: "${hook.command}"`,
+          blockReason: `Hook execution timed out after ${timeoutMs}ms: "${hook.command}"`,
           nonBlockingError: false,
           stdout: stdoutBuffer,
           stderr: stderrBuffer,
@@ -148,7 +245,7 @@ export async function executeCommandHook(
     child.on("error", (error: Error) => {
       if (!settled) {
         settled = true;
-        clearTimeout(timeoutTimer);
+        cleanupChild();
         resolve({
           blocked: false,
           nonBlockingError: true,
@@ -164,7 +261,7 @@ export async function executeCommandHook(
         return;
       }
       settled = true;
-      clearTimeout(timeoutTimer);
+      cleanupChild();
 
       const exitCode = code ?? 0;
 

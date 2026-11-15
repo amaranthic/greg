@@ -38,7 +38,9 @@ export {
 export {
   executeCommandHook,
   buildHookEnvironment,
+  killAllActiveHookProcesses,
   type CommandHookResult,
+  type CommandHookExecutionOptions,
 } from "./runner.js";
 
 export {
@@ -46,4 +48,5 @@ export {
   resolvePromptHookCandidateModels,
   parseEvaluatorDecision,
   type PromptHookResult,
+  type PromptHookExecutionOptions,
 } from "./promptHook.js";

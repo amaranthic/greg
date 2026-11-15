@@ -42,6 +42,7 @@ import {
 import {
   executeCommandHook,
   executePromptHook,
+  killAllActiveHookProcesses,
   loadHooksConfig,
   resolveMatchingHooks,
   type HookInput,
@@ -213,6 +214,10 @@ export async function executePrintRun(
   const logger = new StderrLogger(verbose ? { isVerbose: true } : {});
   const signalLifecycle = new SignalLifecycle();
 
+  signalLifecycle.registerCleanup(() => {
+    killAllActiveHookProcesses();
+  });
+
   const isPersistent = !options.noSessionPersistence;
   const threadStore = isPersistent
     ? new FileThreadStore({ homeDirectory: configuration.homeDirectory })
@@ -379,9 +384,10 @@ export async function executePrintRun(
         toolInput: effectiveParameters,
       };
 
+      const hookOptions = { signal: signalLifecycle.signal };
       const result = hook.type === "command"
-        ? await executeCommandHook(hook, hookInput)
-        : await executePromptHook(hook, hookInput, configuration);
+        ? await executeCommandHook(hook, hookInput, hookOptions)
+        : await executePromptHook(hook, hookInput, configuration, hookOptions);
 
       if (result.nonBlockingError && result.errorMessage) {
         logger.warn(result.errorMessage);
@@ -456,9 +462,10 @@ export async function executePrintRun(
         toolDurationMs: context.durationMs,
       };
 
+      const hookOptions = { signal: signalLifecycle.signal };
       const result = hook.type === "command"
-        ? await executeCommandHook(hook, hookInput)
-        : await executePromptHook(hook, hookInput, configuration);
+        ? await executeCommandHook(hook, hookInput, hookOptions)
+        : await executePromptHook(hook, hookInput, configuration, hookOptions);
 
       if (result.nonBlockingError && result.errorMessage) {
         logger.warn(result.errorMessage);
@@ -499,9 +506,10 @@ export async function executePrintRun(
         userPrompt: context.userPrompt,
       };
 
+      const hookOptions = { signal: signalLifecycle.signal };
       const result = hook.type === "command"
-        ? await executeCommandHook(hook, hookInput)
-        : await executePromptHook(hook, hookInput, configuration);
+        ? await executeCommandHook(hook, hookInput, hookOptions)
+        : await executePromptHook(hook, hookInput, configuration, hookOptions);
 
       if (result.nonBlockingError && result.errorMessage) {
         logger.warn(result.errorMessage);
@@ -566,9 +574,10 @@ export async function executePrintRun(
         lastAssistantMessage: lastAssistantText,
       };
 
+      const hookOptions = { signal: signalLifecycle.signal };
       const result = hook.type === "command"
-        ? await executeCommandHook(hook, hookInput)
-        : await executePromptHook(hook, hookInput, configuration);
+        ? await executeCommandHook(hook, hookInput, hookOptions)
+        : await executePromptHook(hook, hookInput, configuration, hookOptions);
 
       if (result.nonBlockingError && result.errorMessage) {
         logger.warn(result.errorMessage);

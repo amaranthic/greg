@@ -38,6 +38,14 @@ export interface PromptHookResult {
 }
 
 /**
+ * Options controlling prompt hook execution lifecycle.
+ */
+export interface PromptHookExecutionOptions {
+  /** Optional cancellation signal to gracefully abort prompt evaluation. */
+  readonly signal?: AbortSignal | undefined;
+}
+
+/**
  * Parsed output structure expected from the prompt evaluator model.
  */
 interface EvaluatorDecision {
@@ -198,7 +206,16 @@ export async function executePromptHook(
   hook: PromptHook,
   input: HookInput,
   configuration: ResolvedConfiguration,
+  options?: PromptHookExecutionOptions,
 ): Promise<PromptHookResult> {
+  if (options?.signal?.aborted) {
+    return {
+      blocked: true,
+      blockReason: "Prompt hook evaluation aborted by signal",
+      nonBlockingError: false,
+    };
+  }
+
   const candidateModels = resolvePromptHookCandidateModels(hook, configuration);
 
   if (candidateModels.length === 0) {
@@ -208,6 +225,8 @@ export async function executePromptHook(
       errorMessage: "No valid model candidates available for prompt hook evaluation",
     };
   }
+
+  const timeoutMs = hook.timeoutMs !== undefined ? hook.timeoutMs : hook.timeout * 1000;
 
   // Substitute $ARGUMENTS placeholder with serialized JSON input
   const serializedInput = JSON.stringify(input, null, 2);
@@ -228,9 +247,18 @@ export async function executePromptHook(
 
     try {
       const abortController = new AbortController();
+
+      const onParentAbort = (): void => {
+        abortController.abort(new Error("Prompt hook aborted by parent signal"));
+      };
+
+      if (options?.signal) {
+        options.signal.addEventListener("abort", onParentAbort, { once: true });
+      }
+
       const timeoutTimer = setTimeout(() => {
-        abortController.abort();
-      }, hook.timeout * 1000);
+        abortController.abort(new Error(`Prompt hook timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
 
       // Create isolated read-only tool registry
       const readOnlyTools = createReadOnlyToolRegistry();
@@ -260,6 +288,9 @@ export async function executePromptHook(
         }
       } finally {
         clearTimeout(timeoutTimer);
+        if (options?.signal) {
+          options.signal.removeEventListener("abort", onParentAbort);
+        }
       }
 
       const decision = parseEvaluatorDecision(turnText);
