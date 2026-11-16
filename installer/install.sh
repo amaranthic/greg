@@ -212,7 +212,7 @@ check_version() {
         installed_version="${installed_version##* }"
         installed_version="${installed_version#v}"
 
-        print_message info "${MUTED}Installed version: ${NC}$installed_version."
+        print_message info "${MUTED}Installed version: ${NC}$installed_version"
     fi
 }
 
@@ -277,6 +277,22 @@ download_with_progress() {
 INSTALLED_PATH=""
 
 download_and_install() {
+    local version_dir="$BIN_DIR/$specific_version"
+    mkdir -p "$version_dir"
+
+    local installed_binary="$APP"
+    if [[ "${os:-linux}" == "windows" ]]; then
+        installed_binary="$APP.exe"
+    fi
+
+    if [ -f "$version_dir/$installed_binary" ]; then
+        print_message info "\n${MUTED}Version ${NC}$specific_version ${MUTED}is already installed, updating symlink${NC}"
+        INSTALLED_PATH="$version_dir/$installed_binary"
+        rm -f "$BIN_DIR/$installed_binary" 2>/dev/null || true
+        ln -sf "$INSTALLED_PATH" "$BIN_DIR/$installed_binary"
+        return 0
+    fi
+
     print_message info "\n${MUTED}Installing ${NC}$APP ${MUTED}version: ${NC}$specific_version"
     local tmp_dir="${TMPDIR:-/tmp}/greg_install_$$"
     mkdir -p "$tmp_dir"
@@ -292,12 +308,7 @@ download_and_install() {
         fi
     fi
 
-    local version_dir="$BIN_DIR/$specific_version"
-    mkdir -p "$version_dir"
-
-    local installed_binary="$APP"
     if [[ "${os:-linux}" == "windows" ]]; then
-        installed_binary="$APP.exe"
         unzip -q -o "$tmp_dir/$filename" -d "$tmp_dir"
         mv "$tmp_dir/$installed_binary" "$version_dir/$installed_binary"
     else
@@ -307,6 +318,7 @@ download_and_install() {
     fi
 
     INSTALLED_PATH="$version_dir/$installed_binary"
+    rm -f "$BIN_DIR/$installed_binary" 2>/dev/null || true
     ln -sf "$INSTALLED_PATH" "$BIN_DIR/$installed_binary"
 
     rm -rf "$tmp_dir"
@@ -325,6 +337,7 @@ install_from_binary() {
     INSTALLED_PATH="$version_dir/$installed_binary"
     cp "$binary_path" "$INSTALLED_PATH"
     chmod 755 "$INSTALLED_PATH"
+    rm -f "$BIN_DIR/$installed_binary" 2>/dev/null || true
     ln -sf "$INSTALLED_PATH" "$BIN_DIR/$installed_binary"
 }
 
@@ -354,6 +367,7 @@ link_to_path() {
     fi
 
     if [ -n "$symlink_dir" ]; then
+        rm -f "$symlink_dir/$bin_name" 2>/dev/null || true
         ln -sf "$target" "$symlink_dir/$bin_name"
         ACTIVE_SYMLINK_DIR="$symlink_dir"
     fi

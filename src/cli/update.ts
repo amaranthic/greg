@@ -7,7 +7,7 @@ import { Command } from "commander";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { chmod, copyFile, mkdir, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -144,6 +144,41 @@ export async function verifyArchiveChecksum(
 }
 
 /**
+ * Updates internal and environment symlinks to point to the specified binary path.
+ *
+ * @param binDir - Target bin directory containing the internal symlink.
+ * @param binaryName - Name of the binary (e.g. "greg" or "greg.exe").
+ * @param installedBinaryPath - Absolute path to the versioned executable binary.
+ */
+export async function updateSymlinks(
+  binDir: string,
+  binaryName: string,
+  installedBinaryPath: string,
+): Promise<void> {
+  const activeInternalSymlink = path.join(binDir, binaryName);
+  try {
+    await unlink(activeInternalSymlink);
+  } catch {
+    // Symlink may not exist yet
+  }
+  await symlink(installedBinaryPath, activeInternalSymlink);
+
+  if (process.env.PREFIX) {
+    const termuxSymlink = path.join(process.env.PREFIX, "bin", binaryName);
+    try {
+      await unlink(termuxSymlink);
+    } catch {
+      // Symlink may not exist yet
+    }
+    try {
+      await symlink(activeInternalSymlink, termuxSymlink);
+    } catch {
+      // Best-effort prefix symlink update
+    }
+  }
+}
+
+/**
  * Executes the `update` subcommand flow.
  *
  * @param options - Parsed update options.
@@ -178,12 +213,6 @@ export async function executeUpdateAction(options: UpdateCommandOptions): Promis
   } else {
     try {
       const latest = await fetchLatestVersion();
-      if (latest === currentVersion) {
-        writeToStdout(
-          `${brandColors.muted}Already on latest version: ${brandColors.reset}${currentVersion}\n`,
-        );
-        return;
-      }
       targetVersion = latest;
     } catch (resolveErr) {
       writeToStderr(
@@ -205,6 +234,27 @@ export async function executeUpdateAction(options: UpdateCommandOptions): Promis
   const isWindows = target.startsWith("windows");
   const ext = isWindows ? ".zip" : ".tar.gz";
   const binaryName = isWindows ? "greg.exe" : "greg";
+
+  const homeDir = resolveHomeDirectory();
+  const binDir = path.join(homeDir, "bin");
+  const targetVersionDir = path.join(binDir, targetVersion);
+  const installedBinaryPath = path.join(targetVersionDir, binaryName);
+
+  // If target version binary is already installed, update symlink and exit
+  if (existsSync(installedBinaryPath)) {
+    await updateSymlinks(binDir, binaryName, installedBinaryPath);
+    if (targetVersion === currentVersion && !options.version) {
+      writeToStdout(
+        `${brandColors.muted}Already on latest version: ${brandColors.reset}${currentVersion}\n`,
+      );
+    } else {
+      writeToStdout(
+        `${brandColors.muted}Version ${brandColors.reset}${targetVersion} ${brandColors.muted}is already installed, updated symlink${brandColors.reset}\n`,
+      );
+    }
+    return;
+  }
+
   const archiveFilename = `greg-v${targetVersion}-${target}${ext}`;
   const downloadUrl = `https://github.com/${gregGitHubRepo}/releases/download/v${targetVersion}/${archiveFilename}`;
 
@@ -256,58 +306,13 @@ export async function executeUpdateAction(options: UpdateCommandOptions): Promis
       throw new Error(`Extracted archive did not contain binary "${binaryName}"`);
     }
 
-    // Prepare versioned target directory in HERNEX_HOME/bin/<version>/
-    const homeDir = resolveHomeDirectory();
-    const binDir = path.join(homeDir, "bin");
-    const targetVersionDir = path.join(binDir, targetVersion);
+    // Save binary to versioned target directory HERNEX_HOME/bin/<version>/
     await mkdir(targetVersionDir, { recursive: true });
-
-    const installedBinaryPath = path.join(targetVersionDir, binaryName);
     await copyFile(extractedBinaryPath, installedBinaryPath);
     await chmod(installedBinaryPath, 0o755);
 
-    // Prune all other version directories inside binDir
-    let prunedCount = 0;
-    try {
-      const entries = await readdir(binDir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory() && entry.name !== targetVersion) {
-          const oldDir = path.join(binDir, entry.name);
-          await rm(oldDir, { recursive: true, force: true });
-          prunedCount++;
-        }
-      }
-    } catch {
-      // Best-effort directory cleanup
-    }
-
-    if (prunedCount > 0) {
-      writeToStdout(
-        `${brandColors.muted}Pruned ${prunedCount} old version(s).${brandColors.reset}\n`,
-      );
-    }
-
-    // Update active internal symlink: $GREG_HOME/bin/greg -> $GREG_HOME/bin/<targetVersion>/greg
-    const activeInternalSymlink = path.join(binDir, binaryName);
-    try {
-      await unlink(activeInternalSymlink);
-    } catch {
-      // Symlink may not exist yet
-    }
-    await symlink(installedBinaryPath, activeInternalSymlink);
-
-    // Update active environment symlink (e.g. Termux prefix bin) if present
-    if (process.env.PREFIX) {
-      const termuxSymlink = path.join(process.env.PREFIX, "bin", binaryName);
-      if (existsSync(termuxSymlink)) {
-        try {
-          await unlink(termuxSymlink);
-          await symlink(activeInternalSymlink, termuxSymlink);
-        } catch {
-          // Best-effort prefix symlink update
-        }
-      }
-    }
+    // Update active symlinks without pruning older versions
+    await updateSymlinks(binDir, binaryName, installedBinaryPath);
 
     writeToStdout(`${brandColors.muted}Installed version: ${brandColors.reset}${targetVersion}\n`);
   } catch (err) {
