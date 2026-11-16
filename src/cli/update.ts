@@ -39,7 +39,7 @@ export interface UpdateCommandOptions {
  * @returns Recognized release target identifier string.
  */
 export function detectHostTarget(): ReleaseTarget {
-  const platform = process.platform;
+  const platform = process.platform as string;
   const arch = process.arch === "arm64" ? "arm64" : "x64";
 
   if (platform === "darwin") {
@@ -50,11 +50,17 @@ export function detectHostTarget(): ReleaseTarget {
     return "windows-x64";
   }
 
-  if (platform === "linux") {
-    const isAndroid =
-      process.env.TERMUX_VERSION !== undefined || existsSync("/data/data/com.termux");
+  const isAndroid =
+    platform === "android" ||
+    process.env.TERMUX_VERSION !== undefined ||
+    existsSync("/data/data/com.termux");
 
-    return isAndroid && arch === "arm64" ? "android-arm64" : `linux-${arch}`;
+  if (isAndroid && arch === "arm64") {
+    return "android-arm64";
+  }
+
+  if (platform === "linux") {
+    return `linux-${arch}`;
   }
 
   throw new Error(`Unsupported operating system / architecture: ${platform}/${process.arch}`);
