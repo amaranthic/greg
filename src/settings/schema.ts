@@ -4,7 +4,13 @@
  */
 
 import { z } from "zod";
-import { defaultMaxTurns, defaultModelString, defaultTimeoutDuration } from "../constants/index.js";
+import {
+  defaultMaxRetries,
+  defaultMaxTurns,
+  defaultModelString,
+  defaultTimeoutDuration,
+  maxAllowedMaxRetries,
+} from "../constants/index.js";
 
 /**
  * Valid reasoning effort options supported across frontier reasoning models.
@@ -56,6 +62,8 @@ export const settingsSchema = z.object({
   timeout: z.string().default(defaultTimeoutDuration),
   /** Ordered list of fallback models tried left-to-right when primary fails. */
   fallbackModels: z.array(z.string()).default([]),
+  /** Shared ceiling for both request transport and stream error retries. Default: 10, max: 15. */
+  maxRetries: z.number().int().min(0).max(maxAllowedMaxRetries).default(defaultMaxRetries),
 });
 
 /**

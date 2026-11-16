@@ -8,16 +8,23 @@ import {
   AgentEngine,
   FileCheckpointStore,
   FileThreadStore,
+  resolveRetryCount,
   ToolRegistry,
   type AgentReasoningLevel,
   type BeforeTurnResult,
   type ModelMessage,
   type PermissionDecision,
+  type PostToolResult,
   type StepTokenUsage,
   type StopDecision,
   type TurnFinishReason,
 } from "@amaranthic/hernex";
-import { exitCodes, type ExitCode } from "../constants/index.js";
+import {
+  defaultMaxRetries,
+  exitCodes,
+  maxAllowedMaxRetries,
+  type ExitCode,
+} from "../constants/index.js";
 import {
   createOutputSink,
   StderrLogger,
@@ -51,14 +58,6 @@ import {
 import { parseDurationMs } from "../utils/index.js";
 import { SignalLifecycle } from "./signals.js";
 import { readStreamJsonLines } from "./input.js";
-
-/**
- * Internal result structure for PostTool hooks.
- */
-interface PostToolResult {
-  readonly updatedResult?: unknown | undefined;
-  readonly additionalContext?: string | undefined;
-}
 
 /**
  * Execution parameters driving a single Greg run.
@@ -626,6 +625,12 @@ export async function executePrintRun(
       onShouldStop: shouldStopHook,
     };
 
+    const effectiveRetries = resolveRetryCount(
+      configuration.settings.maxRetries,
+      defaultMaxRetries,
+      maxAllowedMaxRetries,
+    );
+
     if (!isNewThread && threadStore) {
       const metadata = await threadStore.getThread(targetThreadId);
       if (!metadata) {
@@ -647,6 +652,8 @@ export async function executePrintRun(
           checkpoint: isPersistent,
           abortSignal: signalLifecycle.signal,
           hooks: agentHooks,
+          maxRetries: effectiveRetries,
+          streamRetries: effectiveRetries,
           ...(threadStore ? { threadStore } : {}),
           ...(checkpointStore ? { checkpointStore } : {}),
           ...(finalInstructions ? { instructions: finalInstructions } : {}),
@@ -671,6 +678,8 @@ export async function executePrintRun(
       checkpoint: isPersistent,
       abortSignal: signalLifecycle.signal,
       hooks: agentHooks,
+      maxRetries: effectiveRetries,
+      streamRetries: effectiveRetries,
       ...(threadStore ? { threadStore } : {}),
       ...(checkpointStore ? { checkpointStore } : {}),
       ...(finalInstructions ? { instructions: finalInstructions } : {}),

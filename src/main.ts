@@ -52,6 +52,10 @@ export function createProgram(): Command {
       "Reasoning effort level: none | minimal | low | medium | high | xhigh | max",
     )
     .option("-s, --max-turns <number>", "Maximum turn loop steps before stopping")
+    .option(
+      "--max-retries <number>",
+      "Maximum retry attempts for transport and stream errors (default: 10, max: 15)",
+    )
     .option("-t, --timeout <timeout>", "Wall-clock timeout e.g. 30m, 10s")
     .option("--json-schema <schema>", "JSON Schema for structured output validation")
     .option("--system-prompt <prompt>", "Override default system prompt instructions")

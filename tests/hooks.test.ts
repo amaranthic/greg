@@ -447,6 +447,7 @@ describe("Prompt Hook Model Resolution & Decision Parsing", () => {
       maxTurns: 50,
       timeout: "30m",
       fallbackModels: ["google/gemini-2.5-flash"],
+      maxRetries: 10,
     },
   };
 

@@ -3,6 +3,7 @@
  * @packageDocumentation
  */
 
+import { defaultMaxRetries, maxAllowedMaxRetries } from "@amaranthic/hernex";
 import packageJson from "../../package.json" with { type: "json" };
 
 /**
@@ -107,3 +108,13 @@ export const defaultStdinPrompt = "Process and respond to the following input:";
  * Maximum character length for derived thread titles.
  */
 export const maxThreadTitleLength = 80;
+
+/**
+ * Default maximum number of retries for request transport and streaming provider failures.
+ */
+export { defaultMaxRetries };
+
+/**
+ * Hard upper limit cap for maxRetries to prevent unbounded retry loops.
+ */
+export { maxAllowedMaxRetries };

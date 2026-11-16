@@ -7,7 +7,13 @@ import os from "node:os";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { defaultModelString, defaultProviderBaseUrls } from "../constants/index.js";
+import { resolveRetryCount } from "@amaranthic/hernex";
+import {
+  defaultMaxRetries,
+  defaultModelString,
+  defaultProviderBaseUrls,
+  maxAllowedMaxRetries,
+} from "../constants/index.js";
 import { readSettingsFile } from "./file.js";
 import {
   settingsSchema,
@@ -32,6 +38,8 @@ export interface CliOverrideOptions {
   readonly disallowedTools?: readonly string[] | undefined;
   /** Maximum turn count override. */
   readonly maxTurns?: number | undefined;
+  /** Shared retry ceiling override for transport and stream failures. */
+  readonly maxRetries?: number | undefined;
   /** Timeout duration override string. */
   readonly timeout?: string | undefined;
   /** Fallback models list passed on the command line. */
@@ -296,6 +304,10 @@ export async function resolveEffectiveConfiguration(
     disallowedTools: mergedDisallowedTools,
     maxTurns: options.maxTurns ?? baseSettings.maxTurns,
     timeout: options.timeout ?? baseSettings.timeout,
+    maxRetries:
+      options.maxRetries !== undefined
+        ? resolveRetryCount(options.maxRetries, defaultMaxRetries, maxAllowedMaxRetries)
+        : baseSettings.maxRetries,
   });
 
   const baseUrl = resolveProviderBaseUrl(normalizedModel.provider, options.baseUrl);

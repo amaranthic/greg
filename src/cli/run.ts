@@ -3,7 +3,13 @@
  * @packageDocumentation
  */
 
-import { defaultStdinPrompt, maxThreadTitleLength } from "../constants/index.js";
+import { resolveRetryCount } from "@amaranthic/hernex";
+import {
+  defaultMaxRetries,
+  defaultStdinPrompt,
+  maxAllowedMaxRetries,
+  maxThreadTitleLength,
+} from "../constants/index.js";
 import { executePrintRun, readPipedStdin } from "../core/index.js";
 import type { OutputFormat } from "../output/index.js";
 import { resolveEffectiveConfiguration, type CliOverrideOptions } from "../settings/index.js";
@@ -21,6 +27,7 @@ export interface RunCommandArgs {
   readonly fallbackModel?: string | string[] | undefined;
   readonly effort?: string | undefined;
   readonly maxTurns?: string | undefined;
+  readonly maxRetries?: string | undefined;
   readonly timeout?: string | undefined;
   readonly jsonSchema?: string | undefined;
   readonly systemPrompt?: string | undefined;
@@ -167,6 +174,16 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     ? parseInt(args.resumeSessionAt, 10)
     : undefined;
 
+  let parsedMaxRetries: number | undefined;
+  if (args.maxRetries !== undefined) {
+    const rawParsed = parseInt(args.maxRetries, 10);
+    if (Number.isNaN(rawParsed)) {
+      writeToStderr("Error: --max-retries must be a valid integer.\n");
+      process.exit(1);
+    }
+    parsedMaxRetries = resolveRetryCount(rawParsed, defaultMaxRetries, maxAllowedMaxRetries);
+  }
+
   const overrides: CliOverrideOptions = {
     model: args.model,
     fallbackModels: parseList(args.fallbackModel),
@@ -175,6 +192,7 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     allowedTools: parseList(args.allowedTools),
     disallowedTools: parseList(args.disallowedTools),
     maxTurns: Number.isFinite(parsedMaxTurns) ? parsedMaxTurns : undefined,
+    maxRetries: parsedMaxRetries,
     timeout: args.timeout,
     apiKey: args.apiKey,
     baseUrl: args.baseUrl,

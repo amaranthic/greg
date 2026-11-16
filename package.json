@@ -1,6 +1,6 @@
 {
   "name": "greg",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The post-modern autonomous print agent powered by Hernex",
   "type": "module",
   "bin": {
@@ -25,7 +25,7 @@
     "build": "bun build --compile --no-env-file src/main.ts --outfile=greg"
   },
   "dependencies": {
-    "@amaranthic/hernex": "^0.6.1",
+    "@amaranthic/hernex": "0.7.1",
     "commander": "15.1.0",
     "zod": "4.6.7"
   },

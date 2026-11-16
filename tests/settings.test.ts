@@ -30,6 +30,7 @@ describe("Settings Schema & Defaults", () => {
     expect(parsed.model).toBe("dummy");
     expect(parsed.permissionMode).toBe("default");
     expect(parsed.maxTurns).toBe(50);
+    expect(parsed.maxRetries).toBe(10);
     expect(parsed.timeout).toBe("30m");
     expect(parsed.allowedTools).toEqual([]);
     expect(parsed.disallowedTools).toEqual([]);
