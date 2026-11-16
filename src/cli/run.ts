@@ -46,6 +46,11 @@ export interface RunCommandArgs {
   readonly verbose?: boolean | undefined;
   readonly apiKey?: string | undefined;
   readonly baseUrl?: string | undefined;
+  /**
+   * When true, the LSP tool will not be registered for this run.
+   * Forwarded from the `--disable-lsp` CLI flag and always wins over `enableLsp` in settings.
+   */
+  readonly disableLsp?: boolean | undefined;
 }
 
 /**
@@ -198,6 +203,7 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     baseUrl: args.baseUrl,
     home: args.home,
     bare: args.bare,
+    disableLsp: args.disableLsp,
   };
 
   let resolvedConfig;
@@ -241,6 +247,7 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     jsonSchema: parsedJsonSchema,
     verbose: args.verbose,
     bare: args.bare,
+    disableLsp: args.disableLsp,
   });
 
   process.exit(exitCode);

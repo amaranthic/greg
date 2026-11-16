@@ -8,6 +8,7 @@ import { Command } from "commander";
 import {
   createCheckpointsCommand,
   createConfigCommand,
+  createLspCommand,
   createThreadsCommand,
   createUpdateCommand,
   executeRunAction,
@@ -87,6 +88,10 @@ export function createProgram(): Command {
     .option("--verbose", "Emit diagnostic tool activity and status to stderr")
     .option("--api-key <key>", "Explicit provider API key override")
     .option("--base-url <url>", "Explicit provider base URL override")
+    .option(
+      "--disable-lsp",
+      "Disable the LSP code-intelligence tool for this run (overrides enableLsp setting)",
+    )
     .action(async (promptArgument?: unknown) => {
       const options = program.opts<Record<string, unknown>>();
       const effectivePrompt =
@@ -112,6 +117,7 @@ export function createProgram(): Command {
   program.addCommand(createThreadsCommand());
   program.addCommand(createCheckpointsCommand());
   program.addCommand(createUpdateCommand());
+  program.addCommand(createLspCommand());
 
   return program;
 }

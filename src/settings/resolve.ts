@@ -52,6 +52,11 @@ export interface CliOverrideOptions {
   readonly home?: string | undefined;
   /** Whether to suppress loading user and project settings files. */
   readonly bare?: boolean | undefined;
+  /**
+   * When true, disables the LSP tool for this run regardless of `enableLsp` in settings.
+   * Always takes precedence over the `enableLsp` setting field.
+   */
+  readonly disableLsp?: boolean | undefined;
 }
 
 /**
@@ -74,6 +79,12 @@ export interface ResolvedConfiguration {
   readonly baseUrl: string;
   /** Authoritative non-empty API key for provider requests. */
   readonly apiKey: string;
+  /**
+   * Whether LSP code-intelligence is effectively enabled for this run.
+   * Computed as: `settings.enableLsp === true && options.disableLsp !== true`.
+   * Always `false` in bare mode.
+   */
+  readonly lspEnabled: boolean;
 }
 
 /**
@@ -313,6 +324,10 @@ export async function resolveEffectiveConfiguration(
   const baseUrl = resolveProviderBaseUrl(normalizedModel.provider, options.baseUrl);
   const apiKey = resolveProviderApiKey(normalizedModel.provider, options.apiKey);
 
+  // LSP is enabled only when: not bare mode, settings flag is true, and --disable-lsp was not passed.
+  const lspEnabled =
+    !options.bare && effectiveSettings.enableLsp === true && options.disableLsp !== true;
+
   return {
     settings: effectiveSettings,
     homeDirectory,
@@ -322,5 +337,6 @@ export async function resolveEffectiveConfiguration(
     fallbackModels: normalizedFallbackModels,
     baseUrl,
     apiKey,
+    lspEnabled,
   };
 }

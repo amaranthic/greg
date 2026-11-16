@@ -15,6 +15,7 @@ export const userFacingToolNames = [
   "Grep",
   "WebFetch",
   "WebSearch",
+  "Lsp",
 ] as const;
 
 /** Union type representing authorized user-facing tool names. */
@@ -31,6 +32,7 @@ export const allBuiltInToolNames: readonly string[] = [
   "grep",
   "webFetch",
   "webSearch",
+  "lsp",
 ];
 
 /** Read-only tools exposed during plan mode reconnaissance. */
@@ -40,6 +42,7 @@ export const planModeToolNames: readonly string[] = [
   "grep",
   "webFetch",
   "webSearch",
+  "lsp",
 ];
 
 /** Mapping between user-facing PascalCase names and internal Hernex tool identifiers. */
@@ -52,6 +55,7 @@ const userToHernexMap: Record<UserFacingToolName, string> = {
   Grep: "grep",
   WebFetch: "webFetch",
   WebSearch: "webSearch",
+  Lsp: "lsp",
 };
 
 /** Mapping between internal Hernex identifiers and user-facing PascalCase names. */
@@ -64,6 +68,7 @@ const hernexToUserMap: Record<string, UserFacingToolName> = {
   grep: "Grep",
   webFetch: "WebFetch",
   webSearch: "WebSearch",
+  lsp: "Lsp",
   Read: "Read",
   Write: "Write",
   Edit: "Edit",
@@ -72,6 +77,7 @@ const hernexToUserMap: Record<string, UserFacingToolName> = {
   Grep: "Grep",
   WebFetch: "WebFetch",
   WebSearch: "WebSearch",
+  Lsp: "Lsp",
 };
 
 /**

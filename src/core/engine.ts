@@ -8,6 +8,7 @@ import {
   AgentEngine,
   FileCheckpointStore,
   FileThreadStore,
+  LspTool,
   resolveRetryCount,
   ToolRegistry,
   type AgentReasoningLevel,
@@ -55,7 +56,7 @@ import {
   type HookInput,
   type ResolvedHooksConfig,
 } from "../hooks/index.js";
-import { parseDurationMs } from "../utils/index.js";
+import { parseDurationMs, readLspConfig, writeToStderr } from "../utils/index.js";
 import { SignalLifecycle } from "./signals.js";
 import { readStreamJsonLines } from "./input.js";
 
@@ -95,6 +96,11 @@ export interface ExecutionOptions {
   readonly verbose?: boolean | undefined;
   /** Whether to run in bare mode, skipping ambient discovery and lifecycle hooks. */
   readonly bare?: boolean | undefined;
+  /**
+   * When true, the LSP tool is not registered for this run, regardless of resolved config.
+   * Forwarded from the `--disable-lsp` CLI flag.
+   */
+  readonly disableLsp?: boolean | undefined;
 }
 
 /**
@@ -273,6 +279,39 @@ export async function executePrintRun(
   for (const registeredTool of toolRegistry.list()) {
     if (!exposedTools.has(registeredTool.name)) {
       toolRegistry.unregister(registeredTool.name);
+    }
+  }
+
+  // Conditionally register LspTool when LSP is enabled and servers are configured
+  if (configuration.lspEnabled && options.bare !== true && options.disableLsp !== true) {
+    try {
+      const lspConfigFile = await readLspConfig(configuration.homeDirectory);
+      const serverCount = Object.keys(lspConfigFile.servers).length;
+
+      if (serverCount > 0 && exposedTools.has("lsp")) {
+        const hernexLspConfig: Record<
+          string,
+          { command: string; args: string[]; extensions: string[]; env?: Record<string, string> }
+        > = {};
+
+        for (const [serverName, serverEntry] of Object.entries(lspConfigFile.servers)) {
+          hernexLspConfig[serverName] = {
+            command: serverEntry.command,
+            args: serverEntry.args,
+            extensions: serverEntry.extensions,
+            ...(serverEntry.env ? { env: serverEntry.env } : {}),
+          };
+        }
+
+        toolRegistry.register(new LspTool(hernexLspConfig as any));
+      } else if (serverCount === 0) {
+        writeToStderr(
+          "[greg/lsp] enableLsp is true but no LSP servers are configured. Run: greg lsp add --command <cmd> --extensions <ext...>\n",
+        );
+      }
+    } catch (lspErr) {
+      const lspErrMsg = lspErr instanceof Error ? lspErr.message : String(lspErr);
+      writeToStderr(`[greg/lsp] Failed to load LSP configuration: ${lspErrMsg}\n`);
     }
   }
 

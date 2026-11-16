@@ -100,6 +100,19 @@ export function extractToolTarget(
     return typeof params.query === "string" ? params.query : "*";
   }
 
+  if (normalizedName === "lsp") {
+    const rawPath = typeof params.filePath === "string" ? params.filePath : undefined;
+    if (rawPath) {
+      const resolved = path.resolve(workingDirectory, rawPath);
+      const relative = path.relative(workingDirectory, resolved);
+      if (relative.startsWith("..") || path.isAbsolute(relative)) {
+        return resolved.replace(/\\/g, "/");
+      }
+      return relative.replace(/\\/g, "/");
+    }
+    return "*";
+  }
+
   return "*";
 }
 
@@ -117,7 +130,8 @@ export function isReadOnlyTool(toolName: string): boolean {
     normalized === "glob" ||
     normalized === "grep" ||
     normalized === "webfetch" ||
-    normalized === "websearch"
+    normalized === "websearch" ||
+    normalized === "lsp"
   );
 }
 

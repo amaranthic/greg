@@ -12,3 +12,10 @@ export { createCheckpointsCommand, type CheckpointSubcommandOptions } from "./ch
 export { createUpdateCommand, type UpdateCommandOptions } from "./update.js";
 
 export { executeRunAction, type RunCommandArgs } from "./run.js";
+
+export {
+  createLspCommand,
+  type LspSubcommandOptions,
+  type LspAddOptions,
+  type LspListOptions,
+} from "./lsp.js";

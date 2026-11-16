@@ -22,6 +22,15 @@ import {
   unsetSettingValue,
   writeSettingsFile,
 } from "../src/settings/index.js";
+import {
+  addLspServer,
+  getLspConfigFilePath,
+  lspConfigSchema,
+  lspServerEntrySchema,
+  readLspConfig,
+  removeLspServer,
+  writeLspConfig,
+} from "../src/utils/index.js";
 
 describe("Settings Schema & Defaults", () => {
   it("parses empty input with deterministic version 1 and defaults", () => {
@@ -34,6 +43,7 @@ describe("Settings Schema & Defaults", () => {
     expect(parsed.timeout).toBe("30m");
     expect(parsed.allowedTools).toEqual([]);
     expect(parsed.disallowedTools).toEqual([]);
+    expect(parsed.enableLsp).toBe(false);
   });
 
   it("rejects unknown permission modes", () => {
@@ -192,6 +202,124 @@ describe("Model Normalization & Credential Resolution", () => {
           process.cwd(),
         ),
       ).rejects.toThrow("is not a recognized Hernex provider");
+    } finally {
+      await rm(tempHome, { recursive: true, force: true });
+    }
+  });
+
+  it("resolves lspEnabled correctly respecting enableLsp, disableLsp override, and bare mode", async () => {
+    const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-lsp-resolve-test-"));
+    try {
+      // 1. By default, lspEnabled is false
+      const defaultConfig = await resolveEffectiveConfiguration({ home: tempHome });
+      expect(defaultConfig.lspEnabled).toBe(false);
+
+      // 2. When enableLsp is true in settings, lspEnabled resolves to true
+      await writeSettingsFile(tempHome, {
+        ...defaultConfig.settings,
+        enableLsp: true,
+      });
+
+      const enabledConfig = await resolveEffectiveConfiguration({ home: tempHome });
+      expect(enabledConfig.lspEnabled).toBe(true);
+
+      // 3. CLI --disable-lsp overrides enableLsp setting
+      const overriddenConfig = await resolveEffectiveConfiguration({
+        home: tempHome,
+        disableLsp: true,
+      });
+      expect(overriddenConfig.lspEnabled).toBe(false);
+
+      // 4. In bare mode, lspEnabled is always false
+      const bareConfig = await resolveEffectiveConfiguration({
+        home: tempHome,
+        bare: true,
+      });
+      expect(bareConfig.lspEnabled).toBe(false);
+    } finally {
+      await rm(tempHome, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("LSP Configuration Schema & File Operations", () => {
+  it("validates valid LSP server entries and rejects wildcard or invalid extensions", () => {
+    // Valid entry
+    const valid = lspServerEntrySchema.parse({
+      command: "typescript-language-server",
+      args: ["--stdio"],
+      extensions: [".ts", ".tsx", ".c++"],
+      env: { NODE_ENV: "production" },
+    });
+    expect(valid.command).toBe("typescript-language-server");
+    expect(valid.extensions).toEqual([".ts", ".tsx", ".c++"]);
+    expect(valid.env).toEqual({ NODE_ENV: "production" });
+
+    // Wildcard extension must be rejected
+    expect(() =>
+      lspServerEntrySchema.parse({
+        command: "tls",
+        extensions: ["*.ts"],
+      }),
+    ).toThrow("Wildcards are not supported");
+
+    // Extension without leading dot must be rejected
+    expect(() =>
+      lspServerEntrySchema.parse({
+        command: "tls",
+        extensions: ["ts"],
+      }),
+    ).toThrow("Each extension must start with a dot");
+
+    // Empty extensions list must be rejected
+    expect(() =>
+      lspServerEntrySchema.parse({
+        command: "tls",
+        extensions: [],
+      }),
+    ).toThrow();
+  });
+
+  it("handles atomic LSP config file creation, read, add, and remove operations", async () => {
+    const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-lsp-file-test-"));
+    try {
+      // 1. Initial read returns empty servers map
+      const initial = await readLspConfig(tempHome);
+      expect(initial.version).toBe(1);
+      expect(initial.servers).toEqual({});
+      expect(getLspConfigFilePath(tempHome)).toBe(path.join(tempHome, "config", "lsp.json"));
+
+      // 2. Add an LSP server
+      await addLspServer(tempHome, "typescript", {
+        command: "typescript-language-server",
+        args: ["--stdio"],
+        extensions: [".ts", ".tsx"],
+      });
+
+      const afterAdd = await readLspConfig(tempHome);
+      expect(Object.keys(afterAdd.servers)).toEqual(["typescript"]);
+      expect(afterAdd.servers.typescript!.command).toBe("typescript-language-server");
+      expect(afterAdd.servers.typescript!.args).toEqual(["--stdio"]);
+      expect(afterAdd.servers.typescript!.extensions).toEqual([".ts", ".tsx"]);
+
+      // 3. Overwriting an existing server updates it
+      await addLspServer(tempHome, "typescript", {
+        command: "custom-ts-server",
+        args: ["--stdio", "--log-level=debug"],
+        extensions: [".ts"],
+      });
+
+      const afterOverwrite = await readLspConfig(tempHome);
+      expect(afterOverwrite.servers.typescript!.command).toBe("custom-ts-server");
+      expect(afterOverwrite.servers.typescript!.args).toEqual(["--stdio", "--log-level=debug"]);
+
+      // 4. Remove the server
+      await removeLspServer(tempHome, "typescript");
+      const afterRemove = await readLspConfig(tempHome);
+      expect(afterRemove.servers.typescript).toBeUndefined();
+
+      // 5. Removing non-existent server throws
+      expect(removeLspServer(tempHome, "typescript")).rejects.toThrow("not found");
     } finally {
       await rm(tempHome, { recursive: true, force: true });
     }

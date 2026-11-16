@@ -438,6 +438,7 @@ describe("Prompt Hook Model Resolution & Decision Parsing", () => {
     apiKey: "dummy-key",
     baseUrl: "http://localhost:8080/v1",
     homeDirectory: "/home/user/.greg",
+    lspEnabled: false,
     settings: {
       version: 1,
       model: "anthropic/claude-3-5-sonnet",
@@ -448,6 +449,7 @@ describe("Prompt Hook Model Resolution & Decision Parsing", () => {
       timeout: "30m",
       fallbackModels: ["google/gemini-2.5-flash"],
       maxRetries: 10,
+      enableLsp: false,
     },
   };
 

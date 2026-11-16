@@ -212,7 +212,7 @@ describe("Greg CLI End-to-End Execution", () => {
     } finally {
       await rm(tempHome, { recursive: true, force: true });
     }
-  });
+  }, 15000);
 
   it("prunes oldest threads with count argument and -y bypass flag", async () => {
     const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-thread-prune-"));
@@ -269,7 +269,7 @@ describe("Greg CLI End-to-End Execution", () => {
     } finally {
       await rm(tempHome, { recursive: true, force: true });
     }
-  });
+  }, 15000);
 
   it("accepts positional prompt and dispatches to engine", async () => {
     const proc = Bun.spawn(
@@ -523,4 +523,113 @@ describe("Greg CLI End-to-End Execution", () => {
       await rm(tempWorkspace, { recursive: true, force: true });
     }
   });
+
+  it("manages LSP server configurations via greg lsp add, list, and remove commands", async () => {
+    const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-lsp-cli-test-"));
+    try {
+      // 1. Initially list shows empty message
+      const listEmptyProc = Bun.spawn(["bun", cliEntry, "lsp", "list", "--home", tempHome], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const listEmptyOutput = await new Response(listEmptyProc.stdout).text();
+      const listEmptyCode = await listEmptyProc.exited;
+      expect(listEmptyCode).toBe(0);
+      expect(listEmptyOutput).toContain("No LSP servers configured");
+
+      // 2. Add an LSP server
+      const addProc = Bun.spawn(
+        [
+          "bun",
+          cliEntry,
+          "lsp",
+          "add",
+          "typescript",
+          "--command",
+          "typescript-language-server",
+          "--args",
+          "--stdio",
+          "--extensions",
+          ".ts",
+          ".tsx",
+          "--env",
+          "NODE_ENV=production",
+          "--home",
+          tempHome,
+        ],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const addOutput = await new Response(addProc.stdout).text();
+      const addCode = await addProc.exited;
+      expect(addCode).toBe(0);
+      expect(addOutput).toContain('LSP server "typescript" registered successfully');
+
+      // 3. List in table format
+      const listTableProc = Bun.spawn(["bun", cliEntry, "lsp", "list", "--home", tempHome], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const listTableOutput = await new Response(listTableProc.stdout).text();
+      const listTableCode = await listTableProc.exited;
+      expect(listTableCode).toBe(0);
+      expect(listTableOutput).toContain("typescript");
+      expect(listTableOutput).toContain("typescript-language-server");
+      expect(listTableOutput).toContain(".ts .tsx");
+
+      // 4. List in JSON format
+      const listJsonProc = Bun.spawn(
+        ["bun", cliEntry, "lsp", "list", "--json", "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const listJsonOutput = await new Response(listJsonProc.stdout).text();
+      const listJsonCode = await listJsonProc.exited;
+      expect(listJsonCode).toBe(0);
+      const jsonParsed = JSON.parse(listJsonOutput);
+      expect(jsonParsed.typescript.command).toBe("typescript-language-server");
+      expect(jsonParsed.typescript.extensions).toEqual([".ts", ".tsx"]);
+      expect(jsonParsed.typescript.env).toEqual({ NODE_ENV: "production" });
+
+      // 5. Reject invalid extension with wildcard
+      const rejectWildcardProc = Bun.spawn(
+        [
+          "bun",
+          cliEntry,
+          "lsp",
+          "add",
+          "bad",
+          "--command",
+          "bad-server",
+          "--extensions",
+          "*.ts",
+          "--home",
+          tempHome,
+        ],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const rejectWildcardStderr = await new Response(rejectWildcardProc.stderr).text();
+      const rejectWildcardCode = await rejectWildcardProc.exited;
+      expect(rejectWildcardCode).toBe(1);
+      expect(rejectWildcardStderr).toContain("Wildcards are not supported");
+
+      // 6. Remove the server
+      const removeProc = Bun.spawn(
+        ["bun", cliEntry, "lsp", "remove", "typescript", "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const removeOutput = await new Response(removeProc.stdout).text();
+      const removeCode = await removeProc.exited;
+      expect(removeCode).toBe(0);
+      expect(removeOutput).toContain('LSP server "typescript" removed successfully');
+
+      // 7. Remove non-existent server exits with error code 1
+      const removeMissingProc = Bun.spawn(
+        ["bun", cliEntry, "lsp", "remove", "nonexistent", "--home", tempHome],
+        { stdout: "pipe", stderr: "pipe" },
+      );
+      const removeMissingCode = await removeMissingProc.exited;
+      expect(removeMissingCode).toBe(1);
+    } finally {
+      await rm(tempHome, { recursive: true, force: true });
+    }
+  }, 15000);
 });

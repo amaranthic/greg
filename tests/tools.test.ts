@@ -43,6 +43,7 @@ describe("Tool Catalogue Exposure & Fail-Closed Filtering", () => {
     expect(planTools.has("grep")).toBe(true);
     expect(planTools.has("webFetch")).toBe(true);
     expect(planTools.has("webSearch")).toBe(true);
+    expect(planTools.has("lsp")).toBe(true);
     expect(planTools.has("writeFile")).toBe(false);
     expect(planTools.has("bash")).toBe(false);
     expect(planTools.has("taskManager")).toBe(false);
@@ -79,10 +80,12 @@ describe("Tool Catalogue Exposure & Fail-Closed Filtering", () => {
     expect(toHernexToolName("Grep")).toBe("grep");
     expect(toHernexToolName("WebFetch")).toBe("webFetch");
     expect(toHernexToolName("WebSearch")).toBe("webSearch");
+    expect(toHernexToolName("Lsp")).toBe("lsp");
 
     expect(toUserFacingToolName("readFile")).toBe("Read");
     expect(toUserFacingToolName("writeFile")).toBe("Write");
     expect(toUserFacingToolName("editFile")).toBe("Edit");
     expect(toUserFacingToolName("bash")).toBe("Bash");
+    expect(toUserFacingToolName("lsp")).toBe("Lsp");
   });
 });

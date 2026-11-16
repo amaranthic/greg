@@ -64,6 +64,13 @@ export const settingsSchema = z.object({
   fallbackModels: z.array(z.string()).default([]),
   /** Shared ceiling for both request transport and stream error retries. Default: 10, max: 15. */
   maxRetries: z.number().int().min(0).max(maxAllowedMaxRetries).default(defaultMaxRetries),
+  /**
+   * Whether to enable the LSP (Language Server Protocol) code-intelligence tool.
+   * When true and at least one server is configured in `lsp.json`, the LspTool is registered.
+   * Can be overridden at runtime with the `--disable-lsp` CLI flag.
+   * @default false
+   */
+  enableLsp: z.boolean().default(false),
 });
 
 /**
