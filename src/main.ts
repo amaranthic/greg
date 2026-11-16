@@ -9,6 +9,7 @@ import {
   createCheckpointsCommand,
   createConfigCommand,
   createThreadsCommand,
+  createUpdateCommand,
   executeRunAction,
   type RunCommandArgs,
 } from "./cli/index.js";
@@ -110,6 +111,7 @@ export function createProgram(): Command {
   program.addCommand(createConfigCommand());
   program.addCommand(createThreadsCommand());
   program.addCommand(createCheckpointsCommand());
+  program.addCommand(createUpdateCommand());
 
   return program;
 }

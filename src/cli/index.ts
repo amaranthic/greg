@@ -9,4 +9,6 @@ export { createThreadsCommand, type ThreadSubcommandOptions } from "./threads.js
 
 export { createCheckpointsCommand, type CheckpointSubcommandOptions } from "./checkpoints.js";
 
+export { createUpdateCommand, type UpdateCommandOptions } from "./update.js";
+
 export { executeRunAction, type RunCommandArgs } from "./run.js";

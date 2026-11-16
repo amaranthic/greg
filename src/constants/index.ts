@@ -118,3 +118,27 @@ export { defaultMaxRetries };
  * Hard upper limit cap for maxRetries to prevent unbounded retry loops.
  */
 export { maxAllowedMaxRetries };
+
+/**
+ * Authoritative ANSI brand color escape sequences matching the official installer.
+ */
+export const brandColors = {
+  /** Muted/dim terminal text styling (`\x1b[0;2m`). */
+  muted: "\x1b[0;2m",
+  /** Error/failure red styling (`\x1b[0;31m`). */
+  red: "\x1b[0;31m",
+  /** Canonical brand accent orange styling (`\x1b[38;5;214m`). */
+  orange: "\x1b[38;5;214m",
+  /** Terminal formatting reset sequence (`\x1b[0m`). */
+  reset: "\x1b[0m",
+} as const;
+
+/**
+ * Type representing one of the available brand color identifiers.
+ */
+export type BrandColor = keyof typeof brandColors;
+
+/**
+ * Official GitHub repository slug for Greg releases and installer assets.
+ */
+export const gregGitHubRepo = "amaranthic/greg";
