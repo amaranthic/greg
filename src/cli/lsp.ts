@@ -40,6 +40,12 @@ export interface LspAddOptions extends LspSubcommandOptions {
   readonly extensions: string[];
   /** Extra environment variables in `KEY=VALUE` format. */
   readonly env?: string[] | undefined;
+  /** Optional LSP languageId override (e.g. "typescriptreact"). */
+  readonly languageId?: string | undefined;
+  /** Per-server idle timeout in milliseconds before tearing down. */
+  readonly idleTimeout?: string | undefined;
+  /** Maximum consecutive crash restart attempts before circuit breaker trips. */
+  readonly maxRestarts?: string | undefined;
 }
 
 /**
@@ -164,6 +170,18 @@ export function createLspCommand(): Command {
       "--env <vars...>",
       "Extra environment variables in KEY=VALUE format (e.g. --env NODE_ENV=production)",
     )
+    .option(
+      "--language-id <id>",
+      "Explicit LSP languageId override (e.g. --language-id typescriptreact)",
+    )
+    .option(
+      "--idle-timeout <ms>",
+      "Per-server idle timeout in milliseconds before process teardown",
+    )
+    .option(
+      "--max-restarts <count>",
+      "Maximum consecutive crash restarts before circuit breaker opens",
+    )
     .option("--home <dir>", "Override home directory path")
     .action(async (name: string, options: LspAddOptions, cmd: Command) => {
       const mergedOptions = { ...cmd.optsWithGlobals(), ...options } as LspAddOptions;
@@ -175,12 +193,22 @@ export function createLspCommand(): Command {
         process.exit(1);
       }
 
+      const idleTimeoutMs = mergedOptions.idleTimeout
+        ? Number.parseInt(mergedOptions.idleTimeout, 10)
+        : undefined;
+      const maxRestarts = mergedOptions.maxRestarts
+        ? Number.parseInt(mergedOptions.maxRestarts, 10)
+        : undefined;
+
       // Validate extensions via schema (provides clear error messages)
       const rawEntry = {
         command: mergedOptions.command,
         args: mergedOptions.args ?? [],
         extensions: mergedOptions.extensions,
         env: mergedOptions.env ? parseEnvPairsOrExit(mergedOptions.env) : undefined,
+        languageId: mergedOptions.languageId,
+        idleTimeoutMs,
+        maxRestarts,
       };
 
       let validatedEntry: LspServerEntry;
@@ -194,11 +222,24 @@ export function createLspCommand(): Command {
 
       try {
         await addLspServer(home, name.trim(), validatedEntry);
+
+        let extraDetails = "";
+        if (validatedEntry.languageId) {
+          extraDetails += `  Language ID: ${validatedEntry.languageId}\n`;
+        }
+        if (validatedEntry.idleTimeoutMs !== undefined) {
+          extraDetails += `  Idle Timeout: ${validatedEntry.idleTimeoutMs}ms\n`;
+        }
+        if (validatedEntry.maxRestarts !== undefined) {
+          extraDetails += `  Max Restarts: ${validatedEntry.maxRestarts}\n`;
+        }
+
         writeToStdout(
           `LSP server "${name.trim()}" registered successfully.\n` +
-            `  Command:    ${validatedEntry.command}\n` +
-            `  Args:       ${validatedEntry.args.length > 0 ? validatedEntry.args.join(" ") : "(none)"}\n` +
-            `  Extensions: ${validatedEntry.extensions.join(" ")}\n`,
+            `  Command:     ${validatedEntry.command}\n` +
+            `  Args:        ${validatedEntry.args.length > 0 ? validatedEntry.args.join(" ") : "(none)"}\n` +
+            `  Extensions:  ${validatedEntry.extensions.join(" ")}\n` +
+            extraDetails,
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

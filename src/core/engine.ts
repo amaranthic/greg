@@ -13,6 +13,7 @@ import {
   ToolRegistry,
   type AgentReasoningLevel,
   type BeforeTurnResult,
+  type LspToolConfig,
   type ModelMessage,
   type PermissionDecision,
   type PostToolResult,
@@ -56,7 +57,7 @@ import {
   type HookInput,
   type ResolvedHooksConfig,
 } from "../hooks/index.js";
-import { parseDurationMs, readLspConfig, writeToStderr } from "../utils/index.js";
+import { parseDurationMs, resolveEffectiveLspConfig, writeToStderr } from "../utils/index.js";
 import { SignalLifecycle } from "./signals.js";
 import { readStreamJsonLines } from "./input.js";
 
@@ -282,28 +283,42 @@ export async function executePrintRun(
     }
   }
 
+  let lspTool: LspTool | undefined;
+
   // Conditionally register LspTool when LSP is enabled and servers are configured
   if (configuration.lspEnabled && options.bare !== true && options.disableLsp !== true) {
     try {
-      const lspConfigFile = await readLspConfig(configuration.homeDirectory);
+      const lspConfigFile = await resolveEffectiveLspConfig(configuration.homeDirectory);
       const serverCount = Object.keys(lspConfigFile.servers).length;
 
       if (serverCount > 0 && exposedTools.has("lsp")) {
-        const hernexLspConfig: Record<
-          string,
-          { command: string; args: string[]; extensions: string[]; env?: Record<string, string> }
-        > = {};
+        const lspToolConfig: LspToolConfig = {
+          servers: Object.fromEntries(
+            Object.entries(lspConfigFile.servers).map(([serverName, serverEntry]) => [
+              serverName,
+              {
+                command: serverEntry.command,
+                args: serverEntry.args,
+                extensions: serverEntry.extensions,
+                ...(serverEntry.env ? { env: serverEntry.env } : {}),
+                ...(serverEntry.languageId ? { languageId: serverEntry.languageId } : {}),
+                ...(serverEntry.idleTimeoutMs ? { idleTimeoutMs: serverEntry.idleTimeoutMs } : {}),
+                ...(serverEntry.maxRestarts !== undefined
+                  ? { maxRestarts: serverEntry.maxRestarts }
+                  : {}),
+              },
+            ]),
+          ),
+        };
 
-        for (const [serverName, serverEntry] of Object.entries(lspConfigFile.servers)) {
-          hernexLspConfig[serverName] = {
-            command: serverEntry.command,
-            args: serverEntry.args,
-            extensions: serverEntry.extensions,
-            ...(serverEntry.env ? { env: serverEntry.env } : {}),
-          };
-        }
+        lspTool = new LspTool(lspToolConfig);
+        toolRegistry.register(lspTool);
 
-        toolRegistry.register(new LspTool(hernexLspConfig as any));
+        signalLifecycle.registerCleanup(async () => {
+          if (lspTool) {
+            await lspTool.dispose();
+          }
+        });
       } else if (serverCount === 0) {
         writeToStderr(
           "[greg/lsp] enableLsp is true but no LSP servers are configured. Run: greg lsp add --command <cmd> --extensions <ext...>\n",
@@ -873,6 +888,13 @@ export async function executePrintRun(
       }
     }
   } finally {
+    if (lspTool) {
+      try {
+        await lspTool.dispose();
+      } catch {
+        // Discard disposal errors during shutdown
+      }
+    }
     if (timer) {
       clearTimeout(timer);
     }

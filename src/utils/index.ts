@@ -7,4 +7,4 @@ export { parseDurationMs, formatDuration, formatBytes, normalizeThreadTitle } fr
 
 export { writeToStdout, writeToStderr, gracefulExit } from "./process.js";
 
-export * from "./lsp/index.js";
+export * from "./lsp.js";

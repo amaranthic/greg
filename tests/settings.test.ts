@@ -24,11 +24,13 @@ import {
 } from "../src/settings/index.js";
 import {
   addLspServer,
+  defaultLspServers,
   getLspConfigFilePath,
   lspConfigSchema,
   lspServerEntrySchema,
   readLspConfig,
   removeLspServer,
+  resolveEffectiveLspConfig,
   writeLspConfig,
 } from "../src/utils/index.js";
 
@@ -244,16 +246,22 @@ describe("Model Normalization & Credential Resolution", () => {
 
 describe("LSP Configuration Schema & File Operations", () => {
   it("validates valid LSP server entries and rejects wildcard or invalid extensions", () => {
-    // Valid entry
+    // Valid entry with all optional fields (languageId, idleTimeoutMs, maxRestarts)
     const valid = lspServerEntrySchema.parse({
       command: "typescript-language-server",
       args: ["--stdio"],
       extensions: [".ts", ".tsx", ".c++"],
       env: { NODE_ENV: "production" },
+      languageId: "typescript",
+      idleTimeoutMs: 300000,
+      maxRestarts: 3,
     });
     expect(valid.command).toBe("typescript-language-server");
     expect(valid.extensions).toEqual([".ts", ".tsx", ".c++"]);
     expect(valid.env).toEqual({ NODE_ENV: "production" });
+    expect(valid.languageId).toBe("typescript");
+    expect(valid.idleTimeoutMs).toBe(300000);
+    expect(valid.maxRestarts).toBe(3);
 
     // Wildcard extension must be rejected
     expect(() =>
@@ -320,6 +328,20 @@ describe("LSP Configuration Schema & File Operations", () => {
 
       // 5. Removing non-existent server throws
       expect(removeLspServer(tempHome, "typescript")).rejects.toThrow("not found");
+
+      // 6. Effective LSP configuration falls back to defaultLspServers when empty
+      const effectiveEmpty = await resolveEffectiveLspConfig(tempHome);
+      expect(Object.keys(effectiveEmpty.servers)).toEqual(Object.keys(defaultLspServers));
+      expect(effectiveEmpty.servers.typescript!.command).toBe("typescript-language-server");
+
+      // 7. Effective LSP configuration preserves configured user servers
+      await addLspServer(tempHome, "custom", {
+        command: "custom-lsp",
+        args: [],
+        extensions: [".xyz"],
+      });
+      const effectiveConfigured = await resolveEffectiveLspConfig(tempHome);
+      expect(Object.keys(effectiveConfigured.servers)).toEqual(["custom"]);
     } finally {
       await rm(tempHome, { recursive: true, force: true });
     }
