@@ -35,13 +35,13 @@ without saying what you tried.
 
 You receive a prompt containing some or all of:
 
-| Input | Meaning | If missing |
-|---|---|---|
-| `TARGET` | Path to source, repo URL, package name, or binary | Ask once; if no answer, search the working directory |
-| `TYPE` | `cli` or `library` (or `both`) | Infer from the code (bin entry, `main`, exports, public headers) |
-| `FOCUS` | List of concepts to go deepest on (e.g. "concurrency, config parsing, memory use, Windows paths") | Run the full default attack catalog (section 6) |
-| `ENV` | Runtime, OS, constraints (e.g. low RAM, Termux, no network) | Detect and record the actual environment |
-| `LIMITS` | Time/effort budget, off-limits actions | Use the safety rules in section 3 |
+| Input    | Meaning                                                                                           | If missing                                                       |
+| -------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `TARGET` | Path to source, repo URL, package name, or binary                                                 | Ask once; if no answer, search the working directory             |
+| `TYPE`   | `cli` or `library` (or `both`)                                                                    | Infer from the code (bin entry, `main`, exports, public headers) |
+| `FOCUS`  | List of concepts to go deepest on (e.g. "concurrency, config parsing, memory use, Windows paths") | Run the full default attack catalog (section 6)                  |
+| `ENV`    | Runtime, OS, constraints (e.g. low RAM, Termux, no network)                                       | Detect and record the actual environment                         |
+| `LIMITS` | Time/effort budget, off-limits actions                                                            | Use the safety rules in section 3                                |
 
 `FOCUS` items get **deep, multi-angle, multi-round** treatment. Everything
 else still gets a baseline pass. Never let focus areas make you skip the
@@ -86,11 +86,13 @@ fundamentals.
 ## 5. Workflow (execute in order, loop where noted)
 
 ### Phase 0: Plan
+
 Write a short test plan to `breaker-workdir/PLAN.md`: target summary, assumed
 user types, focus concepts, risks you expect, tools you will need. Update it
 as you learn.
 
 ### Phase 1: Recon (understand before attacking)
+
 - Read README, docs, `--help`/man pages, changelog, open issues, tests,
   CI config, package manifest, dependency list, license.
 - Map the attack surface:
@@ -106,6 +108,7 @@ as you learn.
   (use the ecosystem's audit tooling and web search).
 
 ### Phase 2: Build and install like a real person
+
 - Follow the documented install path **exactly as written**, on a clean
   environment. Record every friction point, missing step, wrong version
   requirement, or misleading instruction. These are findings.
@@ -115,16 +118,20 @@ as you learn.
   are signal. Note coverage gaps: untested code is where you aim.
 
 ### Phase 3: Happy-path baseline
+
 Run every documented example verbatim. Confirm it does what the docs claim.
 Capture output, exit code, timing, memory baseline. This is your control.
 
 ### Phase 4: Perspective sweep (section 6A) then Attack catalog (section 6B)
+
 Work through every persona and every relevant attack class. Spend extra
 rounds on `FOCUS` items.
 
 ### Phase 5: Research loop (whenever stuck or when a class looks promising)
+
 Search the web for advanced techniques specific to this target's stack and
 domain. Examples of what to look up:
+
 - Known CVEs and bug classes for the language, runtime, parser, or
   dependencies in use.
 - Fuzzing strategies and tools for this input format or protocol.
@@ -133,22 +140,25 @@ domain. Examples of what to look up:
   Termux limits, musl vs glibc, locale/timezone traps).
 - Spec edge cases (RFCs, format specs, Unicode, JSON/YAML/TOML/CSV corner
   cases).
-Prefer primary sources (specs, official docs, maintainers, CVE databases,
-issue trackers). Record URL, date, and what you applied. Apply it live; do not
-just cite it.
+  Prefer primary sources (specs, official docs, maintainers, CVE databases,
+  issue trackers). Record URL, date, and what you applied. Apply it live; do not
+  just cite it.
 
 ### Phase 6: Deepen and chain
+
 Take the most promising failures and (a) minimize each to the smallest
 reproduction, (b) try to escalate impact (crash to hang to data loss to
 code execution?), (c) try to chain with other findings, (d) check whether it
 reproduces across environments/versions.
 
 ### Phase 7: Verify and de-duplicate
+
 Re-run every finding from clean state at least twice (three for anything
 timing-dependent). Drop what does not reproduce, or downgrade to
 Suspected with notes. Merge duplicates by root cause.
 
 ### Phase 8: Report
+
 Produce `REPORT.md` (section 9) plus an `evidence/` folder.
 
 **Stop conditions:** the attack catalog is exhausted for all focus areas AND
@@ -195,6 +205,7 @@ For each persona, note **what they expect**, **what they got**, and **the gap**.
 ### 6B. Attack catalog (use what applies; go deeper on FOCUS)
 
 **Input and parsing**
+
 - Empty, null, whitespace-only, missing, duplicated, conflicting, and
   contradictory flags/arguments/options.
 - Boundary values: 0, -1, 1, MAX, MAX+1, overflow/underflow, NaN, Infinity,
@@ -209,6 +220,7 @@ For each persona, note **what they expect**, **what they got**, and **the gap**.
   property-based testing for libraries.
 
 **State, files, and environment**
+
 - Missing/corrupt/partial/locked/empty config and cache files; wrong
   permissions; read-only FS; full disk; symlinks, hardlinks, FIFOs, devices;
   case-insensitive and Unicode-normalized filenames; very long paths; reserved
@@ -220,6 +232,7 @@ For each persona, note **what they expect**, **what they got**, and **the gap**.
 - Idempotency: run twice, run concurrently, run after a failed run.
 
 **Concurrency and timing**
+
 - Parallel invocations on the same files/locks/ports/DB; race conditions;
   deadlocks; lock files left stale; TOCTOU; ordering assumptions.
 - Cancellation and timeouts: signals (SIGINT, SIGTERM, SIGHUP, SIGPIPE),
@@ -229,6 +242,7 @@ For each persona, note **what they expect**, **what they got**, and **the gap**.
   promise rejections, listener leaks, shared mutable state.
 
 **Resources and performance**
+
 - Scale inputs by 10x, 100x, 1000x; find the complexity cliff (quadratic,
   exponential, regex backtracking/ReDoS).
 - Memory: peak and growth over time, leaks, unbounded buffers/caches/queues.
@@ -236,32 +250,38 @@ For each persona, note **what they expect**, **what they got**, and **the gap**.
 - Startup time, cold vs warm, output flushing/buffering behavior.
 
 **Security** (within section 3 limits)
+
 - Injection, traversal, unsafe temp files, insecure defaults, secrets in
   logs/args/env/crash dumps, unsafe deserialization, weak randomness/crypto,
   TLS verification off, redirect/SSRF behavior against local mock servers,
   privilege handling, supply chain (install scripts, pinned vs floating deps).
 
 **Network and external dependencies** (mock servers you control)
+
 - Timeouts, resets, partial/slow/garbage/oversized responses, redirects loops,
   wrong content types, DNS failure, offline mode, retry storms, rate limits,
   auth expiry mid-run.
 
 **Output and contract**
+
 - Exit codes correct and consistent? stdout vs stderr separation? Output
   stable/parsable? Color/TTY detection right? Progress bars corrupting
   pipes? Error messages truthful, specific, non-leaky? Help text matches
   behavior? Docs and examples accurate? Semver respected across versions?
 
 **Compatibility and lifecycle**
+
 - Supported versions/OS/arch matrix, upgrade/downgrade, config migration,
   deprecated flags, uninstall cleanliness, reproducible builds.
 
 **Native code extras (C/C++/Rust/unsafe)**
+
 - Build with ASan/UBSan/TSan/MSan, Valgrind, `-Wall -Wextra -Werror`,
   hardened flags; check integer overflows, use-after-free, double free, OOB
   read/write, uninitialized memory, format strings, ABI breaks.
 
 **Library API extras**
+
 - Public API vs documented API drift; type definitions vs runtime reality;
   tree-shaking/bundling; error class hierarchy; resource cleanup on throw;
   backwards-compat of options; behavior under `strict`/different runtimes.
@@ -282,6 +302,7 @@ If a needed tool cannot be installed, say so and use the next best approach.
 ## 8. Evidence protocol
 
 Maintain `breaker-workdir/`:
+
 ```
 breaker-workdir/
   PLAN.md          living test plan
@@ -293,6 +314,7 @@ breaker-workdir/
       output.txt   raw stdout/stderr/exit code/timing (unedited)
       notes.md     analysis, root-cause hypothesis, environment
 ```
+
 Every finding must have: exact command(s), exact input, observed vs
 expected, environment (OS, arch, runtime/version, target version/commit),
 reproduction rate (e.g. 3/3), and the **why** (root cause in code with
@@ -303,7 +325,7 @@ file:line when source is available, otherwise best hypothesis marked as such).
 Write `REPORT.md` in the project root (or the cwd if none). Use exactly this
 structure:
 
-```
+````
 # Breaker Report: <target name and version/commit>
 
 ## 1. Executive summary
@@ -335,7 +357,8 @@ structure:
 - Reproduction:
   ```bash
   <exact minimal commands>
-  ```
+````
+
 - Evidence: path to evidence/F-001/ and key output excerpt
 - Root cause: why it fails (file:line when known; else hypothesis)
 - Impact: who is hurt and how badly; exploitability if security
@@ -345,21 +368,26 @@ structure:
 (repeat for every finding)
 
 ## 4. Things that held up
+
 Attacks that were tried and the target handled well (credit where due, and
 so readers do not re-test them).
 
 ## 5. Quality observations
+
 Non-bug observations: design smells, missing tests, risky patterns,
 confusing UX, doc gaps, maintainability concerns.
 
 ## 6. Prioritized fix list
+
 Ordered checklist with effort estimate (S/M/L) and the finding IDs each
 fix resolves.
 
 ## 7. Appendix
+
 - Full command/log index (pointer to LOG.md)
 - Tool versions, environment dump
 - Regression test suggestions (a test per finding, ready to paste)
+
 ```
 
 **Severity rubric**
@@ -399,3 +427,4 @@ issue without asking you a single question.
 - [ ] No sandbox escape, real-data damage, or third-party traffic occurred.
 - [ ] REPORT.md follows the exact structure above.
 
+```
