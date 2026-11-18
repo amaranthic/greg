@@ -142,6 +142,27 @@ greg -c "Now add unit tests for those changes"
 
 ---
 
+## 🪝 Lifecycle Hooks
+
+`greg` supports customizable lifecycle hooks defined in `.greg/config/hooks.json` (project level) or `~/.greg/config/hooks.json` (global level).
+
+Supported lifecycle events:
+
+- `PreToolUse`: Evaluated prior to tool invocation. Can approve, rewrite inputs (`updatedInput`), or block.
+- `PostToolUse`: Evaluated after tool execution. Can inspect outputs and supply `additionalContext`.
+- `UserPromptSubmit`: Evaluated before dispatching a user prompt turn to the model. Can veto the turn.
+- `Stop`: Evaluated when the agent considers completing.
+
+Hooks can be `"command"` (subprocess shell scripts) or `"prompt"` (LLM-evaluated assertions).
+
+### Exit Code Protocol for Command Hooks
+
+- **`0`**: Success / Allow. May output structured JSON (`{"decision": "block", "reason": "..."}`, `{"updatedInput": {...}}`, or `{"additionalContext": "..."}`).
+- **`2`**: Dedicated blocking veto. Immediately aborts execution with stderr as the blocking reason.
+- **Any other non-zero**: Non-blocking warning logged to stderr; execution proceeds.
+
+---
+
 ## 📄 License
 
 MIT © [Amaranthic](https://github.com/amaranthic)

@@ -74,7 +74,11 @@ export function evaluateIfCondition(
   }
 
   const target = extractToolTarget(toolName, toolInput, workingDirectory);
-  return matchesToolRule(ifCondition.trim(), toolName, target);
+  try {
+    return matchesToolRule(ifCondition.trim(), toolName, target);
+  } catch {
+    return false;
+  }
 }
 
 /**

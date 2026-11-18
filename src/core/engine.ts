@@ -389,9 +389,16 @@ export async function executePrintRun(
   let permissionDeniedEncountered = false;
 
   // Load effective project and global hooks configuration (suppressed in bare mode)
-  const hooksConfig = isBare
-    ? { PreToolUse: [], PostToolUse: [], UserPromptSubmit: [], Stop: [] }
-    : await loadHooksConfig(workingDirectory, configuration.homeDirectory);
+  let hooksConfig;
+  try {
+    hooksConfig = isBare
+      ? { PreToolUse: [], PostToolUse: [], UserPromptSubmit: [], Stop: [] }
+      : await loadHooksConfig(workingDirectory, configuration.homeDirectory);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(message);
+    return exitCodes.runtimeError;
+  }
 
   const authHook = async (context: {
     readonly toolName: string;
@@ -439,7 +446,7 @@ export async function executePrintRun(
         projectDir: workingDirectory,
         cwd: context.workingDirectory,
         model: configuration.model,
-        turnIndex: engine ? engine.currentTurn + 1 : 1,
+        turnIndex: engine ? engine.currentTurn : 1,
         toolName: canonicalToolName,
         toolInput: effectiveParameters,
       };
@@ -535,6 +542,12 @@ export async function executePrintRun(
         logger.warn(result.errorMessage);
       }
 
+      if (result.blocked) {
+        const reason = result.blockReason ?? `PostToolUse hook blocked tool ${canonicalToolName}`;
+        logger.error(reason);
+        additionalContexts.push(`[PostToolUse Security Alert]: ${reason}`);
+      }
+
       if (result.additionalContext) {
         additionalContexts.push(result.additionalContext);
       }
@@ -582,6 +595,7 @@ export async function executePrintRun(
 
       if (result.blocked) {
         const reason = result.blockReason ?? "Turn vetoed by UserPromptSubmit hook";
+        permissionDeniedEncountered = true;
         logger.error(reason);
         return { veto: true, vetoReason: reason };
       }
@@ -812,6 +826,9 @@ export async function executePrintRun(
               numTurns = event.turnIndex;
               stopReason = event.finishReason;
               totalUsage = event.totalUsage;
+              if (event.finishReason === "vetoed") {
+                permissionDeniedEncountered = true;
+              }
             }
 
             sink.emit(event);

@@ -290,6 +290,20 @@ export async function executeCommandHook(
           }
         }
 
+        // If direct parse failed, attempt resilient regex extraction for embedded JSON block
+        if (!hookOutput) {
+          const jsonMatch = trimmedStdout.match(
+            /\{[\s\S]*?"(?:decision|updatedInput|additionalContext)"[\s\S]*?\}/,
+          );
+          if (jsonMatch) {
+            try {
+              hookOutput = JSON.parse(jsonMatch[0]) as HookOutput;
+            } catch {
+              // Ignore malformed regex match
+            }
+          }
+        }
+
         if (hookOutput?.decision === "block") {
           resolve({
             blocked: true,

@@ -277,6 +277,29 @@ describe("Hook Pattern Matching & `if` Condition Pre-Filtering", () => {
     expect(writeHooks).toHaveLength(1);
     expect((writeHooks[0] as CommandHook).command).toBe("echo 'general write check'");
   });
+
+  it("safely handles invalid if conditions without throwing", () => {
+    const matchers: HookMatcher[] = [
+      {
+        matcher: "Bash",
+        hooks: [
+          {
+            type: "command",
+            command: "echo 'malformed if'",
+            if: "invalid tool condition syntax (not a valid rule)",
+            shell: "bash",
+            timeout: 30,
+            once: false,
+          },
+        ],
+      },
+    ];
+
+    expect(() => {
+      const result = resolveMatchingHooks(matchers, "Bash", { command: "ls" }, process.cwd());
+      expect(result).toHaveLength(0);
+    }).not.toThrow();
+  });
 });
 
 describe("Command Hook Subprocess Runner & Exit Code Protocol", () => {
@@ -354,6 +377,21 @@ describe("Command Hook Subprocess Runner & Exit Code Protocol", () => {
     const result = await executeCommandHook(hook, baseInput);
     expect(result.blocked).toBe(true);
     expect(result.blockReason).toBe("Security policy violation");
+  });
+
+  it("extracts structured JSON decision even when preceded by stdout logs", async () => {
+    const hook: CommandHook = {
+      type: "command",
+      command:
+        'echo \'[audit] checking pre-conditions...\'; echo \'{"decision":"block","reason":"Vetoed by log-wrapped hook"}\'',
+      shell: "bash",
+      timeout: 10,
+      once: false,
+    };
+
+    const result = await executeCommandHook(hook, baseInput);
+    expect(result.blocked).toBe(true);
+    expect(result.blockReason).toBe("Vetoed by log-wrapped hook");
   });
 
   it("handles exit code 2 as dedicated blocking veto with stderr", async () => {
