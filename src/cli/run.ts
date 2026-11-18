@@ -12,6 +12,7 @@ import {
 } from "../constants/index.js";
 import { executePrintRun, readPipedStdin } from "../core/index.js";
 import type { OutputFormat } from "../output/index.js";
+import { resolveExposedTools } from "../policy/index.js";
 import { resolveEffectiveConfiguration, type CliOverrideOptions } from "../settings/index.js";
 import { normalizeThreadTitle, writeToStderr } from "../utils/index.js";
 
@@ -174,10 +175,25 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     return items;
   };
 
-  const parsedMaxTurns = args.maxTurns ? parseInt(args.maxTurns, 10) : undefined;
-  const parsedResumeSessionAt = args.resumeSessionAt
-    ? parseInt(args.resumeSessionAt, 10)
-    : undefined;
+  let parsedMaxTurns: number | undefined;
+  if (args.maxTurns !== undefined) {
+    const rawParsed = parseInt(args.maxTurns, 10);
+    if (Number.isNaN(rawParsed) || rawParsed <= 0) {
+      writeToStderr("Error: --max-turns must be a positive integer.\n");
+      process.exit(1);
+    }
+    parsedMaxTurns = rawParsed;
+  }
+
+  let parsedResumeSessionAt: number | undefined;
+  if (args.resumeSessionAt !== undefined) {
+    const rawParsed = parseInt(args.resumeSessionAt, 10);
+    if (Number.isNaN(rawParsed) || rawParsed < 0) {
+      writeToStderr("Error: --resume-session-at must be a non-negative integer.\n");
+      process.exit(1);
+    }
+    parsedResumeSessionAt = rawParsed;
+  }
 
   let parsedMaxRetries: number | undefined;
   if (args.maxRetries !== undefined) {
@@ -189,6 +205,16 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     parsedMaxRetries = resolveRetryCount(rawParsed, defaultMaxRetries, maxAllowedMaxRetries);
   }
 
+  // Validate --tools filter eagerly before invoking execution engine
+  if (args.tools !== undefined && args.tools.trim() !== "" && args.tools !== "default") {
+    try {
+      resolveExposedTools(args.tools, "default");
+    } catch (toolsErr) {
+      writeToStderr(`Error: ${(toolsErr as Error).message}\n`);
+      process.exit(1);
+    }
+  }
+
   const overrides: CliOverrideOptions = {
     model: args.model,
     fallbackModels: parseList(args.fallbackModel),
@@ -196,7 +222,7 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     permissionMode: args.permissionMode as any,
     allowedTools: parseList(args.allowedTools),
     disallowedTools: parseList(args.disallowedTools),
-    maxTurns: Number.isFinite(parsedMaxTurns) ? parsedMaxTurns : undefined,
+    maxTurns: parsedMaxTurns,
     maxRetries: parsedMaxRetries,
     timeout: args.timeout,
     apiKey: args.apiKey,

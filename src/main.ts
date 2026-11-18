@@ -122,6 +122,16 @@ export function createProgram(): Command {
   return program;
 }
 
+// Process-level EPIPE handler for early pipe closures (e.g. `greg ... | head -n 3`)
+const handlePipeError = (err: NodeJS.ErrnoException): void => {
+  if (err?.code === "EPIPE" || (err as any)?.errno === -32) {
+    process.exit(0);
+  }
+};
+
+process.stdout.on("error", handlePipeError);
+process.stderr.on("error", handlePipeError);
+
 // Execute CLI
 const program = createProgram();
 await program.parseAsync(process.argv);
