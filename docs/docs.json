@@ -18,9 +18,9 @@
     }
   },
   "colors": {
-    "primary": "#A86538",
-    "light": "#DE9E74",
-    "dark": "#8F5327"
+    "primary": "#FFAF00",
+    "light": "#FFC043",
+    "dark": "#CC8400"
   },
   "styling": {
     "codeblocks": {
@@ -77,7 +77,8 @@
       {
         "group": "Core Concepts",
         "pages": [
-          "how-greg-works"
+          "how-greg-works",
+          "permissions"
         ]
       },
       {
@@ -85,7 +86,9 @@
         "pages": [
           "threads",
           "model-providers",
-          "common-workflows"
+          "common-workflows",
+          "hooks",
+          "ci-cd"
         ]
       }
     ]
