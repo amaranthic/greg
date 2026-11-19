@@ -42,9 +42,9 @@ Threads are powered by the [@amaranthic/hernex](https://github.com/amaranthic/he
 ```
 
 1. **Workspace Scoped**: Threads are automatically tied to the directory where you execute `greg` (`process.cwd()`). When you switch between project folders, `greg` keeps their conversation histories completely isolated.
-2. **Persistent on Disk**: Sessions are stored under `~/.greg/threads/` (or `$HERNEX_HOME/threads/`). Every user prompt, tool call, model message, and timestamp is appended to the thread's transcript.
+2. **Persistent on Disk**: Sessions are stored under `~/.greg/threads/<thread-id>/` (or `$HERNEX_HOME/threads/<thread-id>/`), with thread metadata in `thread.json` and append-only conversation events in `transcript.jsonl`.
 3. **Automated Titles**: Thread titles are automatically derived from your initial prompt (normalized up to 80 characters).
-4. **Coupled to Checkpoints**: Every thread maintains an associated content-addressed store powered by Hernex's [`FileCheckpointStore`](https://github.com/amaranthic/hernex), capturing SHA-256 pre-mutation snapshots before any file write or edit touches disk.
+4. **Coupled to Checkpoints**: Every thread maintains an associated checkpoint manifest at `threads/<id>/checkpoints/manifest.json` and content-addressed blobs at `blobs/sha256/<hash>`, capturing SHA-256 pre-mutation snapshots before any file write or edit touches disk.
 
 ---
 

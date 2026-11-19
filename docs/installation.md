@@ -201,7 +201,7 @@ To redirect this directory to an alternate drive, volume, or shared path, set th
 export HERNEX_HOME="/custom/storage/path/greg"
 ```
 
-When set, `greg` saves all threads in `$HERNEX_HOME/threads`, checkpoints in `$HERNEX_HOME/checkpoints`, and settings in `$HERNEX_HOME/settings.json`.
+When set, `greg` saves all threads in `$HERNEX_HOME/threads`, content-addressed snapshot blobs in `$HERNEX_HOME/blobs`, language server configs in `$HERNEX_HOME/config/lsp.json`, and settings in `$HERNEX_HOME/settings.json`.
 
 ---
 

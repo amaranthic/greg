@@ -57,15 +57,21 @@ greg "Trace the checkout workflow from the HTTP route handler in src/routes/chec
 ```
 
 <Tip>
-**Configuring Language Servers**: `greg` includes built-in LSP integration for TypeScript, Python, Rust, and Go to achieve definition-level symbol navigation and accurate type analysis.
+**Enabling & Configuring Language Servers**: `greg` includes built-in LSP integration for TypeScript, Python, Rust, Go, CSS, HTML, and JSON to achieve compiler-grade definition navigation and type checking.
 
-Language servers can be configured and managed dynamically using the `greg lsp` subcommand tree:
+By default, `enableLsp` is `false` to optimize startup time. To enable LSP code intelligence globally:
+
+```bash
+greg config set enableLsp true
+```
+
+Language servers can be inspected, customized, or registered using the `greg lsp` subcommand tree:
 
 ```bash
 # List all registered LSP servers
 greg lsp list
 
-# Register a new language server (e.g. gopls for Go)
+# Register a custom language server (e.g. gopls for Go)
 greg lsp add gopls --command gopls --extensions .go
 
 # Register TypeScript LSP with custom arguments and environment variables
