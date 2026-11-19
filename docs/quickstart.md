@@ -1,201 +1,237 @@
 ---
 title: "Quickstart"
-description: "Install greg in your terminal, configure your provider, and complete your first autonomous task."
+description: "Install greg in your terminal, configure your provider, and complete your first autonomous task in under two minutes."
 ---
 
-> Install greg in your terminal, configure your provider, and make your first autonomous code change.
+This quickstart walks you through getting up and running with `greg` in your terminal: installing the standalone binary, setting up your preferred model provider, exploring a repository, applying safe code edits, verifying solutions with tests, and managing multi-turn sessions.
 
-This quickstart covers getting started with `greg` in your terminal: installing the native binary, setting your API key, exploring a repository, making safe code edits, and running tests.
+<Note>
+`greg` is distributed as a self-contained native binary with zero runtime dependencies. You do not need Node.js, Bun, or Python installed to run official releases. For manual downloads or building from source, see [Installation](/installation).
+</Note>
 
-## Before you begin
+This page covers:
 
-Make sure you have:
+* [Prerequisites](#prerequisites): What you need before getting started.
+* [Step 1: Install Greg](#step-1-install-greg): Downloading and verifying the standalone binary.
+* [Step 2: Configure Your Model Provider](#step-2-configure-your-model-provider): Setting API keys and default frontier models across providers.
+* [Step 3: Ask Your First Question](#step-3-ask-your-first-question): Read-only codebase exploration and architecture queries.
+* [Step 4: Make Your First Code Change](#step-4-make-your-first-code-change): Authorizing file mutations with `--permission-mode acceptEdits`.
+* [Step 5: Run Tests & Verify Solutions](#step-5-run-tests-verify-solutions): Constraining shell execution with scoped `--allowed-tools`.
+* [Step 6: Pipe Terminal Data into Greg](#step-6-pipe-terminal-data-into-greg): Unix composability with `stdin` pipes.
+* [Step 7: Continue Conversations with `-c`](#step-7-continue-conversations-with--c): Multi-turn session persistence.
+* [Essential Commands Cheat Sheet](#essential-commands-cheat-sheet): Quick reference of daily commands.
+* [Next Steps](#next-steps): Guided links to deeper topics.
 
-* A terminal open (`bash`, `zsh`, `fish`, or terminal emulator)
-* A code project or Git repository to work in
-* An API key for your preferred frontier AI model provider (Anthropic, Google Gemini, OpenAI, DeepSeek, or an OpenAI-compatible endpoint)
+---
 
-## Step 1: Install greg
+## Prerequisites
 
-Install `greg` using the official installer for macOS, Linux, or WSL:
+Before beginning, ensure you have:
+
+* A terminal emulator (`bash`, `zsh`, `fish`, or terminal multiplexer).
+* An existing project directory or Git repository to test in.
+* An API key for your preferred frontier AI model provider (Anthropic, Google Gemini, OpenAI, DeepSeek, Groq, or OpenRouter).
+
+---
+
+## Step 1: Install Greg
+
+Install `greg` using the official installation script for macOS, Linux, or WSL:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash
 ```
 
-The installer detects your operating system and CPU architecture, downloads the standalone native binary, and configures it in your PATH.
+The script automatically detects your operating system and CPU architecture, downloads the matching precompiled binary, places it in `~/.greg/bin`, and updates your shell profile (`PATH`).
 
-When the installer finishes, open a new terminal window and verify the installation:
+Once the installer completes, open a new terminal window and verify the installation:
 
 ```bash
 greg --version
 ```
 
-The command prints the installed `greg` version number.
+<Tip>
+You can update `greg` to the latest release at any time by running `greg update`.
+</Tip>
 
-<Note>
-  You can update greg to the latest release at any time by running `greg update`. For manual release downloads, custom paths, or building from source, see the [Installation guide](/installation).
-</Note>
+---
 
-## Step 2: Configure your model provider
+## Step 2: Configure Your Model Provider
 
-Set your API key as an environment variable and configure your default model:
+Set your provider API key as an environment variable and configure your default frontier model. Choose your provider below:
 
 <CodeGroup>
 ```bash Anthropic
-# 1. Set your Anthropic API key
-export ANTHROPIC_API_KEY="your-api-key"
+# 1. Export your Anthropic API key
+export ANTHROPIC_API_KEY="sk-ant-..."
 
-# 2. Set Claude Sonnet as your default model
+# 2. Set Claude Sonnet 4.6 as your default model
 greg config set model anthropic/claude-sonnet-4-6
 ```
 
 ```bash Google Gemini
-# 1. Set your Gemini API key (or GOOGLE_API_KEY)
-export GEMINI_API_KEY="your-api-key"
+# 1. Export your Gemini API key (or GOOGLE_API_KEY)
+export GEMINI_API_KEY="AIzaSy..."
 
-# 2. Set Gemini Flash as your default model
+# 2. Set Gemini 3.8 Flash as your default model
 greg config set model google/gemini-3.8-flash
 ```
 
 ```bash OpenAI
-# 1. Set your OpenAI API key
-export OPENAI_API_KEY="your-api-key"
+# 1. Export your OpenAI API key
+export OPENAI_API_KEY="sk-proj-..."
 
 # 2. Set GPT-5 as your default model
 greg config set model openai/gpt-5
 ```
 
 ```bash DeepSeek
-# 1. Set your DeepSeek API key
-export DEEPSEEK_API_KEY="your-api-key"
+# 1. Export your DeepSeek API key
+export DEEPSEEK_API_KEY="sk-..."
 
 # 2. Set DeepSeek-V4 Pro as your default model
 greg config set model deepseek/deepseek-v4-pro
 ```
 
 ```bash Groq
-# 1. Set your Groq API key
-export GROQ_API_KEY="your-api-key"
+# 1. Export your Groq API key
+export GROQ_API_KEY="gsk_..."
 
-# 2. Set high-throughput Llama 3.3 70B as your default model
+# 2. Set Llama 3.3 70B Versatile as your default model
 greg config set model groq/llama-3.3-70b-versatile
 ```
 
 ```bash OpenRouter
-# 1. Set your OpenRouter API key
-export OPENROUTER_API_KEY="your-api-key"
+# 1. Export your OpenRouter API key
+export OPENROUTER_API_KEY="sk-or-..."
 
 # 2. Route across models via OpenRouter
 greg config set model openrouter/anthropic/claude-sonnet-4-6
 ```
 </CodeGroup>
 
-To verify your configuration, run:
+Verify your active configuration:
 
 ```bash
 greg config get model
 ```
 
 <Tip>
-  Add your `export` line to your shell profile (`~/.zshrc` or `~/.bashrc`) so your key is loaded automatically in every terminal session.
+Add your `export` statement to your shell profile (`~/.zshrc` or `~/.bashrc`) so your credentials load automatically in every terminal session.
 </Tip>
 
-## Step 3: Ask your first question
+---
 
-Navigate to any project directory on your machine:
+## Step 3: Ask Your First Question
+
+Navigate to any project repository:
 
 ```bash
 cd /path/to/your/project
 ```
 
-Ask `greg` to inspect and explain the project:
+Ask `greg` to inspect and summarize the codebase:
 
 ```bash
-greg "What does this project do and where is the main entry point?"
+greg "What does this project do, what are the primary dependencies, and where is the main entry point?"
 ```
 
-`greg` autonomously discovers your files, reads relevant configurations and entrypoints, and streams a clean answer directly to your terminal.
+`greg` autonomously discovers your directory structure using `Glob`, inspects package manifests and configurations using `Read`, and streams a clean answer directly to `stdout`.
 
-You can also ask targeted questions:
+Try more targeted exploration queries:
 
 ```bash
-# Explore folder architecture
-greg "Explain how the project is structured and what each folder contains"
+# Trace an execution path
+greg "How does user authentication work in this application? Which files handle token verification?"
 
-# Trace specific functionality
-greg "Where is user authentication handled and how are tokens validated?"
-
-# Understand dependencies
-greg "What external libraries does this project depend on and why?"
+# Inspect complex data models
+greg "Explain the key database schemas and relationships defined in src/models"
 ```
 
 <Note>
-  `greg` discovers and reads your workspace files automatically. You do not need to manually copy-paste context or files into the prompt.
+`greg` runs by default in fail-closed read-only mode. It can read files and query language servers to answer questions, but will never modify files or run dangerous commands without your explicit consent.
 </Note>
 
-## Step 4: Make your first code change
+---
 
-When you want `greg` to edit or create files, pass `--permission-mode acceptEdits`. This permits `greg` to apply file modifications directly:
+## Step 4: Make Your First Code Change
+
+To permit `greg` to create or edit files, pass `--permission-mode acceptEdits`:
 
 ```bash
-greg "Add an input validation helper function to src/utils" --permission-mode acceptEdits
+greg "Add a slugify helper function to src/utils/strings.ts that converts strings to URL-friendly slugs" \
+  --permission-mode acceptEdits
 ```
 
 `greg` will:
-1. Locate the appropriate file in your workspace
-2. Inspect the existing coding conventions and style
-3. Apply the changes cleanly to disk
+1. Locate `src/utils/strings.ts` (or create it if it does not exist).
+2. Inspect your repository's formatting, casing, and style conventions.
+3. Automatically record a pre-mutation snapshot checkpoint before touching disk.
+4. Apply the edits cleanly.
 
-### Safe edits with instant undo
+### Safe Edits with Instant Rollback
 
-Every file edit `greg` makes is automatically snapshotted before changes touch disk. If you want to undo changes at any point:
+Every file mutation made by `greg` is backed by a content-addressed snapshot. If you ever want to revert changes:
 
 ```bash
-# 1. View recent checkpoints
-greg checkpoints list
+# 1. Inspect the recorded diff
+greg checkpoints diff 1
 
-# 2. Revert the workspace to a previous checkpoint
+# 2. Revert the workspace back to the pre-mutation state
 greg checkpoints restore 1
 ```
 
-## Step 5: Run tests and verify fixes
+---
 
-You can ask `greg` to diagnose bugs and verify solutions by running your test runner. Use `--allowed-tools` to authorize specific shell test commands:
+## Step 5: Run Tests & Verify Solutions
+
+Instruct `greg` to diagnose an issue and verify its fix by executing your test runner. Use `--allowed-tools` to authorize specific shell commands safely:
 
 ```bash
-greg "Run the test suite and fix any failing tests" \
+greg "Add unit tests for our new slugify function in tests/strings.test.ts and run the test runner to verify they pass" \
   --permission-mode acceptEdits \
   --allowed-tools "Bash(bun test *)"
 ```
 
-`greg` will run your tests, analyze failure output, edit the code to fix the root cause, and re-run the tests until they pass.
+`greg` writes the test file, executes `bun test`, evaluates the test output, and resolves any assertion failures until all tests pass.
 
-## Step 6: Pipe terminal output into greg
+---
 
-`greg` follows the Unix philosophy: clean results flow to `stdout` while diagnostic logs stay on `stderr`. You can pipe data from standard terminal tools directly into `greg`:
+## Step 6: Pipe Terminal Data into Greg
 
-```bash
-# Review uncommitted git changes before committing
-git diff | greg "Review these changes for security issues or edge cases"
-
-# Diagnose a server crash from recent error logs
-tail -n 100 app-error.log | greg "Diagnose what caused this error and suggest a fix"
-```
-
-## Step 7: Continue conversation threads
-
-You can continue working on a task without repeating previous context by using `-c` (`--continue`):
+`greg` follows the Unix philosophy: clean Markdown and code stream to `stdout`, while diagnostic logs remain isolated on `stderr`. You can pipe data from standard terminal utilities directly into `greg`:
 
 ```bash
-# First turn: create a helper
-greg "Add a slugify string utility function in src/utils" --permission-mode acceptEdits
+# Audit uncommitted Git changes before committing
+git diff | greg "Review these changes for subtle bugs, performance regressions, or security flaws"
 
-# Second turn: continue the thread to add tests
-greg -c "Now write unit tests covering that new slugify function" --permission-mode acceptEdits
+# Diagnose a crash from a log file
+tail -n 80 error.log | greg "Diagnose what caused this exception and suggest a fix"
+
+# Pipe output into clipboard (macOS / Linux)
+greg "Generate a .gitignore for a modern TypeScript Bun project" | pbcopy
 ```
 
-To list past conversation sessions in the current workspace:
+---
+
+## Step 7: Continue Conversations with `-c`
+
+`greg` automatically organizes your work into workspace-scoped persistent threads. Use `-c` (or `--continue`) to continue your task across multiple turns without repeating context:
+
+```bash
+# Turn 1: Scaffold an interface
+greg "Add a UserProfile interface to src/types.ts" --permission-mode acceptEdits
+
+# Turn 2: Continue the conversation in the same thread
+greg -c "Now add a mock factory function for UserProfile in tests/helpers.ts" --permission-mode acceptEdits
+
+# Turn 3: Verify the changes with tests
+greg -c "Run the test suite and confirm everything compiles cleanly" \
+  --permission-mode acceptEdits \
+  --allowed-tools "Bash(npm test)"
+```
+
+View past sessions in the current workspace:
 
 ```bash
 greg threads list
@@ -203,29 +239,30 @@ greg threads list
 
 ---
 
-## Essential commands
+## Essential Commands Cheat Sheet
 
-Here are the most common commands for daily use:
-
-| Command | What it does | Example |
+| Command | Purpose | Example |
 | :--- | :--- | :--- |
-| `greg "prompt"` | Run an autonomous task in print mode | `greg "Explain this codebase"` |
-| `git diff \| greg "prompt"` | Pipe standard input into greg | `git diff \| greg "Review changes"` |
-| `greg -c "prompt"` | Continue the latest session in workspace | `greg -c "Now add unit tests"` |
-| `greg -r <id> "prompt"` | Resume a specific session thread by ID | `greg -r thr_123 "Continue work"` |
-| `greg checkpoints list` | List recorded file checkpoints | `greg checkpoints list` |
-| `greg checkpoints restore <id>` | Roll back workspace to a checkpoint | `greg checkpoints restore 1` |
-| `greg config get [key]` | View active configuration settings | `greg config get model` |
-| `greg config set <key> <val>` | Update a persistent setting | `greg config set model anthropic/claude-sonnet-4-6` |
+| `greg "prompt"` | Run an autonomous task in read-only print mode | `greg "Explain this repository"` |
+| `greg "prompt" --permission-mode acceptEdits` | Allow file modifications | `greg "Add healthcheck route" --permission-mode acceptEdits` |
+| `greg -c "prompt"` | Continue the latest workspace session | `greg -c "Now add unit tests"` |
+| `greg -r <id> "prompt"` | Resume a specific session by thread ID | `greg -r 4f8a1234-... "Refactor this"` |
+| `git diff \| greg "prompt"` | Ingest piped standard input | `git diff \| greg "Summarize changes"` |
+| `greg checkpoints list` | List file mutation snapshot checkpoints | `greg checkpoints list` |
+| `greg checkpoints diff <seq>` | View file diff for a recorded checkpoint | `greg checkpoints diff 1` |
+| `greg checkpoints restore <seq>` | Roll back workspace to a checkpoint | `greg checkpoints restore 1` |
+| `greg threads list` | List conversation threads in workspace | `greg threads list` |
+| `greg config get [key]` | Inspect active configuration settings | `greg config get model` |
+| `greg config set <key> <val>` | Persist a configuration setting | `greg config set model anthropic/claude-sonnet-4-6` |
 | `greg update` | Update greg to the latest release | `greg update` |
 
 ---
 
-## Next steps
+## Next Steps
 
-Now that you've completed your first task, explore these guides to go deeper:
+Now that you have completed your first task, explore these guides to unlock `greg`'s full capabilities:
 
-* [Model Providers](/model-providers): Configure Claude, Gemini, GPT-5, and reasoning effort levels.
-* [Everyday Workflows](/everyday-usage/common-workflows): In-depth recipes for refactoring, debugging, and terminal automation.
-* [Permissions & Safety](/power-users/permissions-and-safety): Learn how permission modes and scoped allow rules protect your code.
-* [CLI Reference](/reference/cli): Complete reference of all command-line flags and options.
+* [Common Workflows](/common-workflows): In-depth step-by-step recipes for bug fixing, refactoring, test generation, and CI automation.
+* [Managing Threads](/threads): Master multi-turn persistence, time-travel branching (`--resume-session-at`), and checkpoint rollbacks.
+* [Managing Providers](/model-providers): Configure credentials, base URL overrides, reasoning effort, and fallback chains across 13+ providers.
+* [Installation Guide](/installation): Detailed setup for all operating systems, offline releases, and source compilation.

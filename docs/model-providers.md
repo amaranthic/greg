@@ -3,7 +3,9 @@ title: "Managing Providers"
 description: "Configure and route across all frontier models and inference providers supported by greg and Hernex."
 ---
 
-`greg` is frontier-model agnostic. Powered by the [@amaranthic/hernex](https://github.com/amaranthic/hernex) engine, it connects to every major frontier AI provider, open-source inference router, and local gateway using a unified, single-string model format.
+`greg` is completely model-agnostic. Powered by the [@amaranthic/hernex](https://github.com/amaranthic/hernex) engine, it connects to every major frontier AI provider, open-source inference router, and local gateway using a unified single-string identifier format.
+
+Whether you are executing tasks with Anthropic Claude Sonnet, Google Gemini Flash, OpenAI GPT-5, DeepSeek-V4 Pro, or private enterprise endpoints, `greg` normalizes model communication, reasoning effort levels, and tool calling behind a deterministic interface.
 
 ```bash
 # Anthropic
@@ -15,6 +17,21 @@ greg "Review this algorithm" -m deepseek/deepseek-v4-pro
 # Local Gateway
 greg "Explain this file" -m compatible/my-local-model
 ```
+
+<Note>
+New to `greg`? See the [Quickstart](/quickstart) for setting up your first provider, or explore [Common Workflows](/common-workflows) for everyday prompt recipes.
+</Note>
+
+This page covers:
+
+* [How Model Routing Works](#how-model-routing-works): The first-slash routing rule and model ID preservation.
+* [Credential & Base URL Resolution](#credential-base-url-resolution): Environment variable regex formula, provider aliases, and resolution precedence.
+* [Supported Providers Matrix](#supported-providers-matrix): 13+ provider table with required environment variables and default endpoints.
+* [Setting Your Default Model](#setting-your-default-model): Persisting global models and applying temporary CLI overrides.
+* [Reasoning Effort Configuration](#reasoning-effort-configuration): Configuring thinking budgets with `--effort`.
+* [Automatic Fallback Chains](#automatic-fallback-chains): High-availability failover across multiple models.
+* [Custom & Local Gateways](#custom--local-gateways): Connecting to Ollama, vLLM, and enterprise proxies via `compatible/`.
+* [Next Steps](#next-steps): Next guides to explore.
 
 ---
 
@@ -29,7 +46,7 @@ greg "Explain this file" -m compatible/my-local-model
 * **Before the first slash**: The provider identifier (e.g., `anthropic`, `google`, `openai`, `deepseek`, `groq`, `openrouter`).
 * **After the first slash**: The model identifier passed directly to that provider. Any subsequent slashes are preserved as part of the model name (essential for multi-tenant routers like OpenRouter).
 
-### Examples
+### Routing Examples
 
 | Model String | Provider | Model ID Sent to Provider |
 | :--- | :--- | :--- |
@@ -70,14 +87,15 @@ const specificBaseUrlVar = `${normalizedProvider}_BASE_URL`;
 | `custom-gateway/` | `CUSTOM_GATEWAY` | `CUSTOM_GATEWAY_API_KEY` | `CUSTOM_GATEWAY_BASE_URL` |
 
 <Note>
-  **Provider Aliases**: Certain providers feature built-in aliases in [src/settings/resolve.ts](file:///home/nolan/works/greg/src/settings/resolve.ts) that are evaluated in addition to the standard formula:
-  * **Google (`google/`)**: `greg` checks `GEMINI_API_KEY` first, then falls back to `GOOGLE_API_KEY`.
-  * **NVIDIA (`nvidiaNim/`)**: `greg` accepts `NVIDIA_API_KEY` and `NVIDIA_NIM_API_KEY` in addition to `NVIDIANIM_API_KEY`.
+**Provider Aliases**: Certain providers feature built-in aliases in [src/settings/resolve.ts](file:///home/nolan/works/greg/src/settings/resolve.ts) that are evaluated in addition to the standard formula:
+* **Google (`google/`)**: `greg` checks `GEMINI_API_KEY` first, then falls back to `GOOGLE_API_KEY`.
+* **NVIDIA (`nvidiaNim/`)**: `greg` accepts `NVIDIA_API_KEY` and `NVIDIA_NIM_API_KEY` in addition to `NVIDIANIM_API_KEY`.
 </Note>
 
 ---
 
 ### API Key Precedence
+
 1. **CLI Flag Overrides**: `--api-key <key>` explicitly overrides all environment settings for a single command.
 2. **Provider-Specific Variables**: Derived via the formula above (e.g. `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`).
 3. **Provider Aliases**:
@@ -86,10 +104,11 @@ const specificBaseUrlVar = `${normalizedProvider}_BASE_URL`;
 4. **Generic Fallback**: If no provider-specific variable is found, `greg` checks the generic `API_KEY` environment variable.
 
 ### Base URL Precedence & Environment Overrides
+
 Just like API keys, **every provider's base URL is fully configurable via environment variables**:
 
 1. **CLI Flag Override**: `--base-url <url>` overrides the endpoint for a single run.
-2. **Provider-Specific Variables**: Derived via the formula above (`${NORMALIZED_PROVIDER}_BASE_URL`). Every provider has a dedicated variable:
+2. **Provider-Specific Variables**: Derived via the formula above (`${NORMALIZED_PROVIDER}_BASE_URL`):
    * `ANTHROPIC_BASE_URL`
    * `OPENAI_BASE_URL`
    * `GOOGLE_BASE_URL`
@@ -113,18 +132,18 @@ You can direct traffic through corporate proxies, LiteLLM, Portkey, or Cloudflar
 ```bash
 # Route OpenAI traffic through Cloudflare AI Gateway
 export OPENAI_BASE_URL="https://gateway.ai.cloudflare.com/v1/my-account/my-gateway/openai"
-export OPENAI_API_KEY="your-openai-key"
+export OPENAI_API_KEY="sk-proj-..."
 greg "Task" -m openai/gpt-5
 
 # Route Anthropic through an internal corporate proxy
 export ANTHROPIC_BASE_URL="https://proxy.internal.corp/anthropic/v1"
-export ANTHROPIC_API_KEY="your-anthropic-key"
+export ANTHROPIC_API_KEY="sk-ant-..."
 greg "Task" -m anthropic/claude-sonnet-4-6
 ```
 
 ---
 
-## Supported Providers
+## Supported Providers Matrix
 
 Below is the complete matrix of built-in providers bundled with `greg` and Hernex:
 
@@ -167,7 +186,7 @@ greg "Explain this codebase" --model google/gemini-3.8-flash
 
 ---
 
-## Reasoning Effort (`--effort`)
+## Reasoning Effort Configuration
 
 Frontier reasoning models (such as Claude Sonnet 4.6 thinking mode, OpenAI o3 / o4-mini, or Gemini thinking) support configurable reasoning effort. You can specify the reasoning budget per command or configure it persistently:
 
@@ -214,7 +233,7 @@ If the primary model exhausts its retry budget or encounters a non-recoverable e
 
 ---
 
-## Local & Custom OpenAI-Compatible Gateways
+## Custom & Local Gateways
 
 To connect `greg` to local models running on Ollama, vLLM, LM Studio, or private corporate proxies, use the `compatible/` provider:
 
@@ -233,3 +252,13 @@ greg "Review this PR" \
   --base-url https://gateway.internal.corp/v1 \
   --api-key "$INTERNAL_GATEWAY_TOKEN"
 ```
+
+---
+
+## Next Steps
+
+Now that you have configured your model providers and endpoints:
+
+* [Common Workflows](/common-workflows): Explore real-world developer recipes and piping patterns.
+* [Managing Threads](/threads): Master session persistence, branching, and checkpoint rollback workflows.
+* [Quickstart](/quickstart): Return to the quickstart to practice everyday agent commands.

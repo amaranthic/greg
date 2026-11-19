@@ -1,17 +1,34 @@
 ---
 title: "Installation"
-description: "Detailed installation instructions for macOS, Linux, Windows, WSL, and Android."
+description: "Detailed installation instructions for macOS, Linux, Windows, WSL, and Android Termux."
 ---
 
-`greg` is distributed as a self-contained, standalone native binary with zero runtime dependencies. You do not need Node.js, Bun, or Python installed on your system to run the official releases.
+`greg` is distributed as a self-contained, standalone native executable with zero external runtime dependencies. You do not need Node.js, Bun, or Python installed on your system to run official releases.
+
+<Note>
+Looking for a quick hands-on tutorial after installation? Check out the [Quickstart](/quickstart) to complete your first autonomous task in under two minutes.
+</Note>
+
+This page covers:
+
+* [Supported Platforms](#supported-platforms): Operating systems and CPU architectures.
+* [Method 1: Automated Installer (Recommended)](#method-1-automated-installer-recommended): Quick installation script and customizable flags.
+* [Method 2: Direct Release Downloads](#method-2-direct-release-downloads): Manual tarball downloads for air-gapped or customized environments.
+* [Method 3: Building from Source](#method-3-building-from-source): Compiling the standalone binary using Bun.
+* [Verifying the Installation](#verifying-the-installation): Confirming your setup and active version.
+* [Managing Updates](#managing-updates): Checking for releases, upgrading, and pinning specific versions.
+* [Custom Storage & Config (`HERNEX_HOME`)](#custom-storage-config-hernex_home): Overriding the default `~/.greg` state directory.
+* [Troubleshooting & PATH Setup](#troubleshooting-path-setup): Resolving `command not found: greg` across Zsh, Bash, and Fish.
+* [Uninstalling](#uninstalling): Completely removing the binary and runtime state.
+* [Next Steps](#next-steps): Next guides to explore.
 
 ---
 
 ## Supported Platforms
 
-`greg` provides precompiled native release binaries for:
+`greg` provides precompiled, statically linked standalone binaries for all modern desktop and server platforms:
 
-| Operating System | Architecture | Target String |
+| Operating System | Architecture | Target Platform String |
 | :--- | :--- | :--- |
 | **macOS** | Apple Silicon (M1/M2/M3/M4) | `darwin-arm64` |
 | **macOS** | Intel x86_64 | `darwin-x64` |
@@ -22,71 +39,82 @@ description: "Detailed installation instructions for macOS, Linux, Windows, WSL,
 
 ---
 
-## Method 1: Official Installer (Recommended)
+## Method 1: Automated Installer (Recommended)
 
-The easiest way to install `greg` on macOS, Linux, or WSL is through the automated installation script.
+The fastest and most reliable way to install `greg` on macOS, Linux, or Windows (WSL) is using the official automated installer:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash
 ```
 
-### What the installer does:
-1. Detects your operating system and CPU architecture.
-2. Fetches the latest standalone release binary from GitHub.
-3. Installs the executable into `~/.greg/bin/greg`.
-4. Automatically updates your shell profile (`~/.zshrc`, `~/.bashrc`, or fish config) so `greg` is immediately available in your `PATH`.
+### What the Installer Does
 
-### Installer Options
+1. **Architecture Detection**: Determines your host OS (`Darwin`, `Linux`, `Msys`) and CPU architecture (`arm64`, `x86_64`).
+2. **Release Ingestion**: Downloads the latest release binary from the GitHub repository.
+3. **Binary Placement**: Installs the standalone executable into `~/.greg/bin/greg` with correct executable permissions (`chmod +x`).
+4. **Shell Configuration**: Automatically inspects your active shell profile (`~/.zshrc`, `~/.bashrc`, or fish configuration) and appends `~/.greg/bin` to your `PATH` if not already present.
 
-You can pass arguments to the installer using `bash -s -- [options]`:
+### Customizing Installer Execution
 
-#### Install a specific version
+You can customize the installation by passing arguments through `bash -s -- [options]`:
+
+#### 1. Pin a Specific Version
+Install an exact version of `greg` rather than latest:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash -s -- --version 0.1.8
 ```
 
-#### Install without modifying shell configuration
-If you manage your `PATH` manually (e.g. via dotfiles):
+#### 2. Prevent Modifying Shell Profiles
+If you manage your `PATH` manually (e.g. through dotfiles or Nix):
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash -s -- --no-modify-path
 ```
 
-#### Install from a local prebuilt binary
+#### 3. Install from a Local Binary
+Install a binary you built locally without downloading from GitHub:
+
 ```bash
 ./install.sh --binary /path/to/local/greg
 ```
 
 ---
 
-## Method 2: Direct Release Download
+## Method 2: Direct Release Downloads
 
-If you prefer to download release assets manually without running a shell script:
+For air-gapped environments, CI runners, or manual deployments, download official release archives directly:
 
-1. Visit the [Official Releases Page](https://github.com/amaranthic/greg/releases/latest).
-2. Download the archive matching your platform:
-   * **macOS (Apple Silicon)**: `greg-darwin-arm64.tar.gz`
-   * **macOS (Intel)**: `greg-darwin-x64.tar.gz`
-   * **Linux (x64)**: `greg-linux-x64.tar.gz`
-   * **Linux (ARM64)**: `greg-linux-arm64.tar.gz`
-   * **Windows**: `greg-windows-x64.zip`
-3. Extract the archive and place the `greg` binary into any directory in your `PATH`:
-   ```bash
-   tar -xzf greg-linux-x64.tar.gz
-   chmod +x greg
-   sudo mv greg /usr/local/bin/
-   ```
+#### 1. Download the Platform Archive
+Visit the [Official Releases Page](https://github.com/amaranthic/greg/releases/latest) and download the appropriate asset:
+* **macOS (Apple Silicon)**: `greg-darwin-arm64.tar.gz`
+* **macOS (Intel)**: `greg-darwin-x64.tar.gz`
+* **Linux (x64)**: `greg-linux-x64.tar.gz`
+* **Linux (ARM64)**: `greg-linux-arm64.tar.gz`
+* **Windows**: `greg-windows-x64.zip`
+
+#### 2. Extract and Move to System PATH
+Extract the archive and move the binary to any directory within your system `PATH`:
+
+```bash
+# Example for Linux x64
+tar -xzf greg-linux-x64.tar.gz
+chmod +x greg
+sudo mv greg /usr/local/bin/
+```
 
 ---
 
 ## Method 3: Building from Source
 
-If you want to build `greg` directly from source or contribute to development:
+To compile `greg` from source or contribute to its development:
 
 ### Prerequisites
+
 * [Bun](https://bun.sh) (`v1.2` or later)
 * [Git](https://git-scm.com)
 
-### Build Steps
+### Compilation Steps
 
 ```bash
 # 1. Clone the repository
@@ -100,16 +128,19 @@ bun install
 bun run build
 ```
 
-This compiles a self-contained, standalone executable named `./greg` in your root directory. You can test it immediately:
+This compiles a self-contained native executable `./greg` in the repository root. You can test it immediately:
 
 ```bash
 ./greg --version
 ```
 
-To install your locally compiled binary into your system `PATH`:
+To install the compiled binary into your user `PATH`:
+
 ```bash
+# Option A: Move directly to user bin
 mv greg ~/.local/bin/
-# Or use the installer:
+
+# Option B: Run the installer script against your compiled binary
 ./installer/install.sh --binary ./greg
 ```
 
@@ -117,44 +148,70 @@ mv greg ~/.local/bin/
 
 ## Verifying the Installation
 
-Open a new terminal window and run:
+Open a fresh terminal window and run:
 
 ```bash
 greg --version
 ```
 
-If the installation was successful, the command outputs the active version number.
+If the installation succeeded, `greg` prints its version number (e.g. `greg 0.1.8`).
+
+Next, run a quick dry-run check:
+
+```bash
+greg --help
+```
 
 ---
 
 ## Managing Updates
 
-`greg` includes a built-in self-updater that downloads and verifies new releases directly from GitHub:
+`greg` includes a built-in self-updater that verifies and updates the binary in-place:
 
-### Check if a newer version is available
+### Check for Updates
+Inspect if a newer release is available on GitHub:
+
 ```bash
 greg update --check
 ```
 
-### Update to the latest release
+### Upgrade to the Latest Release
+Download and apply the latest release:
+
 ```bash
 greg update
 ```
 
-### Roll back or pin to a specific version
+### Pin or Roll Back to a Specific Version
+Install an exact historical release:
+
 ```bash
 greg update --version 0.1.0
 ```
 
 ---
 
-## Troubleshooting
+## Custom Storage & Config (`HERNEX_HOME`)
 
-### `command not found: greg`
+By default, `greg` stores its binary, persistent thread transcripts, pre-mutation snapshots, and settings under `~/.greg`.
 
-If running `greg` returns `command not found`, the installation directory (`~/.greg/bin`) is not yet in your shell's `PATH`.
+To redirect this directory to an alternate drive, volume, or shared path, set the `HERNEX_HOME` environment variable in your shell profile:
 
-Add the following line to your shell configuration file:
+```bash
+export HERNEX_HOME="/custom/storage/path/greg"
+```
+
+When set, `greg` saves all threads in `$HERNEX_HOME/threads`, checkpoints in `$HERNEX_HOME/checkpoints`, and settings in `$HERNEX_HOME/settings.json`.
+
+---
+
+## Troubleshooting & PATH Setup
+
+### Error: `command not found: greg`
+
+If running `greg` returns `command not found`, your shell has not loaded the `~/.greg/bin` directory into its `PATH`.
+
+Add the path export to your corresponding shell configuration file:
 
 <CodeGroup>
 ```bash zsh (~/.zshrc)
@@ -170,28 +227,36 @@ fish_add_path ~/.greg/bin
 ```
 </CodeGroup>
 
-Then reload your shell:
-```bash
-source ~/.zshrc # or source ~/.bashrc
-```
-
-### Custom Storage & Config Location (`HERNEX_HOME`)
-
-By default, `greg` stores its binary, threads, checkpoints, and settings inside `~/.greg`. You can customize this root directory by setting the `HERNEX_HOME` environment variable:
+Then reload your shell configuration:
 
 ```bash
-export HERNEX_HOME="/custom/storage/path"
+# For Zsh
+source ~/.zshrc
+
+# For Bash
+source ~/.bashrc
 ```
 
 ---
 
 ## Uninstalling
 
-To completely remove `greg` from your system:
+To cleanly uninstall `greg` and remove all local data:
 
 ```bash
-# 1. Remove the binary and state directory
+# 1. Remove the binary, settings, threads, and checkpoints
 rm -rf ~/.greg
 
-# 2. (Optional) Remove the PATH export line from your ~/.zshrc or ~/.bashrc
+# 2. (Optional) Remove the export PATH line from your ~/.zshrc or ~/.bashrc
 ```
+
+---
+
+## Next Steps
+
+Now that your installation is complete and verified:
+
+* [Quickstart](/quickstart): Complete your first autonomous task in under two minutes.
+* [Managing Providers](/model-providers): Configure your API keys for Claude, Gemini, GPT-5, DeepSeek, or local gateways.
+* [Common Workflows](/common-workflows): Explore real-world step-by-step developer recipes.
+* [Managing Threads](/threads): Understand persistent threads, checkpoints, and time-travel rollback workflows.

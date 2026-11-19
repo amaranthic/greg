@@ -30,6 +30,18 @@
       }
     }
   },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "aistudio",
+      "grok",
+      "perplexity"
+    ],
+    "display": "header"
+  },
   "navigation": {
     "groups": [
       {
@@ -44,7 +56,8 @@
         "group": "Using Greg",
         "pages": [
           "threads",
-          "model-providers"
+          "model-providers",
+          "common-workflows"
         ]
       }
     ]
