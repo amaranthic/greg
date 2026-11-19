@@ -1,11 +1,11 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Greg",
+  "name": "Greg Docs",
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg",
-    "href": "https://github.com/amaranthic/greg"
+    "href": "/overview"
   },
   "favicon": "/favicon.svg",
   "appearance": {
@@ -41,6 +41,28 @@
       "perplexity"
     ],
     "display": "header"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Organization",
+        "href": "https://github.com/amaranthic"
+      },
+      {
+        "label": "Report an Issue",
+        "href": "https://github.com/amaranthic/greg/issues"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "GitHub",
+      "href": "https://github.com/amaranthic/greg"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/amaranthic/greg"
+    }
   },
   "navigation": {
     "groups": [
