@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 18 250 72" width="250" height="72" role="img" aria-label="Greg Logo">
+  <g transform="translate(0, 22) scale(0.1173913) translate(-216, -282)">
+    <polygon fill="#141312" points="428,282 651,742 216,742" />
+    <polygon fill="#141312" points="492,282 585,282 808,742 715,742" />
+  </g>
+  <text x="92" y="74" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="70" font-weight="650" fill="#141312" letter-spacing="-2">Greg</text>
+</svg>

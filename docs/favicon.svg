@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="206 272 612 480" width="612" height="480" role="img" aria-label="greg Favicon">
+  <style>
+    :root {
+      --mark-color: #F1F1EC;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --mark-color: #141312;
+      }
+    }
+    .mark {
+      fill: var(--mark-color);
+    }
+  </style>
+  <polygon class="mark" points="428,282 651,742 216,742" />
+  <polygon class="mark" points="492,282 585,282 808,742 715,742" />
+</svg>
