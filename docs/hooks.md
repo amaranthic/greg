@@ -14,7 +14,7 @@ For the underlying architectural mechanics of how the Hernex engine processes ho
 This page covers:
 
 * [How Hooks Work](#how-hooks-work): Event lifecycle sequence and execution boundaries.
-* [Lifecycle Events](#lifecycle-events): `PreToolUse`, `PostToolUse`, `UserPromptSubmit`, and `Stop`.
+* [Lifecycle Events](#lifecycle-events): `PreToolUse`, `PostToolUse`, `Start`, and `Stop`.
 * [Hook Execution Types](#hook-execution-types): Shell `command` hooks vs isolated LLM `prompt` hooks.
 * [Configuration Files & Locations](#configuration-files-locations): Project `.greg/config/hooks.json` vs global `~/.greg/config/hooks.json`.
 * [Subprocess Communication Protocol](#subprocess-communication-protocol): Input payloads, stdout controls, and exit code semantics (`0` vs `2`).
@@ -39,7 +39,7 @@ sequenceDiagram
     participant Tool as Tool Execution
 
     User->>Engine: Run prompt
-    Engine->>Hook: Trigger UserPromptSubmit
+    Engine->>Hook: Trigger Start
     Hook-->>Engine: Inject context / Allow turn
     loop Agent Turn Cycle
         Engine->>Model: Request next action
@@ -80,7 +80,7 @@ sequenceDiagram
 
 | Event Name | When It Triggers | What the Hook Can Do |
 | :--- | :--- | :--- |
-| **`UserPromptSubmit`** | Fired immediately after the user provides a prompt, before the model receives it. | - Inject repository instructions or schema context.<br />- Veto the prompt with a blocking error message. |
+| **`Start`** | Fired immediately after the user provides a prompt, before the model receives it. | - Inject repository instructions or schema context via `additionalContext`.<br />- Rewrite the user prompt via `updatedPrompt` before the model sees it.<br />- Know whether this is a fresh run or resumed thread via `source`.<br />- Veto the prompt with a blocking error message. |
 | **`PreToolUse`** | Fired after the model requests a tool and policy permissions approve it, but *before* disk or shell execution. | - Intercept dangerous operations (e.g. `git push`, `rm -rf`).<br />- Mutate tool input parameters via `updatedInput`.<br />- Veto tool execution. |
 | **`PostToolUse`** | Fired immediately after a tool finishes execution (success or error). | - Run formatters (Prettier, Biome, rustfmt) on modified files.<br />- Inspect tool output and inject `additionalContext` for the model's next turn. |
 | **`Stop`** | Fired when the agent decides it has completed the user's task and attempts to stop. | - Inspect the final response.<br />- Prevent stopping if verification tests or typechecks have not passed. |
@@ -188,6 +188,23 @@ Command hooks communicate with `greg` over standard process boundaries:
 }
 ```
 
+For `Start` events, the payload includes `source` and `userPrompt` instead of tool fields:
+
+```json
+{
+  "sessionId": "7b2c6114-d89e-4906-9f99-0d3b81d92875",
+  "hookEvent": "Start",
+  "projectDir": "/home/user/project",
+  "cwd": "/home/user/project",
+  "model": "google/gemini-3.8-flash",
+  "turnIndex": 1,
+  "source": "startup",
+  "userPrompt": "Fix the broken tests in src/hooks"
+}
+```
+
+`source` is `"startup"` on Turn 1 of a brand-new thread; `"resume"` for resumed threads or any subsequent turn.
+
 In addition to `stdin`, `greg` injects the following environment variables:
 
 | Variable | Description | Example |
@@ -230,6 +247,17 @@ To mutate parameters or inject text, emit JSON on `stdout` with exit code 0:
   "additionalContext": "Note: Push target was automatically remapped to feature branch."
 }
 ```
+
+For `Start` hooks, emit `updatedPrompt` to rewrite the user's prompt before the model sees it:
+
+```json
+{
+  "updatedPrompt": "PROJ-123: Add retry logic to src/utils/http.ts with 3 retries and exponential backoff.",
+  "additionalContext": "Ticket expanded from short reference PROJ-123."
+}
+```
+
+If `updatedPrompt` is an empty or whitespace-only string it is ignored and the original prompt is preserved.
 
 ---
 
@@ -323,7 +351,85 @@ Automatically format files with Prettier or Biome whenever `Write` or `Edit` com
 
 ---
 
-### Recipe 3: Enforce Verification Tests Before Stopping (`Stop`)
+### Recipe 3: Inject Git Branch Context on Every Prompt (`Start`)
+
+Automatically inject the current branch name as context before the model processes any prompt:
+
+```json
+{
+  "hooks": {
+    "Start": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"{\\\"additionalContext\\\": \\\"Active branch: $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)\\\"}\"",
+            "statusMessage": "Injecting git branch context..."
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Recipe 4: Rewrite Prompt to Expand Ticket IDs (`Start`)
+
+Expand ticket references like `PROJ-123` into full task descriptions before the model sees the prompt:
+
+```json
+{
+  "hooks": {
+    "Start": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/expand-ticket-id.sh",
+            "statusMessage": "Expanding ticket references in prompt..."
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The script reads the `HookInput` JSON from `stdin`, looks up the ticket, and emits:
+
+```json
+{ "updatedPrompt": "PROJ-123: Add retry logic to the HTTP client in src/utils/http.ts. Acceptance: 3 retries with exponential backoff." }
+```
+
+---
+
+### Recipe 5: Block Prompts on Startup if Environment Is Not Ready (`Start`)
+
+Prevent agent runs from starting if required secrets or tooling are absent:
+
+```json
+{
+  "hooks": {
+    "Start": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$OPENAI_API_KEY\" ] || { echo 'OPENAI_API_KEY is not set. Export it before running greg.' >&2; exit 2; }",
+            "statusMessage": "Verifying environment..."
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Recipe 6: Enforce Verification Tests Before Stopping (`Stop`)
 
 Prevent the agent from completing its turn until test suites pass:
 
@@ -349,7 +455,7 @@ If any test fails, the agent is prevented from stopping and receives the error m
 
 ---
 
-### Recipe 4: AI Security Screening Hook (`prompt`)
+### Recipe 7: AI Security Screening Hook (`prompt`)
 
 Screen proposed database migrations or file writes with a lightweight LLM prompt hook:
 

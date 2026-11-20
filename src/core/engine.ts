@@ -392,7 +392,7 @@ export async function executePrintRun(
   let hooksConfig;
   try {
     hooksConfig = isBare
-      ? { PreToolUse: [], PostToolUse: [], UserPromptSubmit: [], Stop: [] }
+      ? { PreToolUse: [], PostToolUse: [], Start: [], Stop: [] }
       : await loadHooksConfig(workingDirectory, configuration.homeDirectory);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -564,23 +564,29 @@ export async function executePrintRun(
     readonly turnIndex: number;
     readonly userPrompt: string;
   }): Promise<BeforeTurnResult | void> => {
-    const matchingHooks = resolveMatchingHooks(hooksConfig.UserPromptSubmit);
+    const matchingHooks = resolveMatchingHooks(hooksConfig.Start);
 
     if (matchingHooks.length === 0) {
       return;
     }
 
+    // "startup" = brand-new thread on Turn 1; "resume" = resumed thread or any subsequent turn
+    const source: "startup" | "resume" =
+      context.turnIndex === 1 && isNewThread ? "startup" : "resume";
+
     const additionalInstructions: string[] = [];
+    let effectivePrompt = context.userPrompt;
 
     for (const hook of matchingHooks) {
       const hookInput: HookInput = {
         sessionId: targetThreadId,
-        hookEvent: "UserPromptSubmit",
+        hookEvent: "Start",
         projectDir: workingDirectory,
         cwd: workingDirectory,
         model: configuration.model,
         turnIndex: context.turnIndex,
-        userPrompt: context.userPrompt,
+        source,
+        userPrompt: effectivePrompt,
       };
 
       const hookOptions = { signal: signalLifecycle.signal };
@@ -594,10 +600,19 @@ export async function executePrintRun(
       }
 
       if (result.blocked) {
-        const reason = result.blockReason ?? "Turn vetoed by UserPromptSubmit hook";
+        const reason = result.blockReason ?? "Turn vetoed by Start hook";
         permissionDeniedEncountered = true;
         logger.error(reason);
         return { veto: true, vetoReason: reason };
+      }
+
+      // Thread updatedPrompt sequentially — each hook sees the previous hook's output
+      if (
+        "updatedPrompt" in result &&
+        typeof result.updatedPrompt === "string" &&
+        result.updatedPrompt.trim().length > 0
+      ) {
+        effectivePrompt = result.updatedPrompt;
       }
 
       if (result.additionalContext) {
@@ -605,11 +620,17 @@ export async function executePrintRun(
       }
     }
 
-    if (additionalInstructions.length > 0) {
-      return {
-        injectedInstructions: additionalInstructions.join("\n\n"),
-      };
+    const hasPromptUpdate = effectivePrompt !== context.userPrompt;
+    const hasInstructions = additionalInstructions.length > 0;
+
+    if (!hasPromptUpdate && !hasInstructions) {
+      return;
     }
+
+    return {
+      ...(hasPromptUpdate ? { updatedPrompt: effectivePrompt } : {}),
+      ...(hasInstructions ? { injectedInstructions: additionalInstructions.join("\n\n") } : {}),
+    };
   };
 
   const shouldStopHook = async (context: {

@@ -18,7 +18,7 @@ export type HookType = z.infer<typeof hookTypeSchema>;
 /**
  * Supported hook events that Greg fires during the agent lifecycle.
  */
-export const hookEventSchema = z.enum(["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop"]);
+export const hookEventSchema = z.enum(["PreToolUse", "PostToolUse", "Start", "Stop"]);
 
 /**
  * Type representing one of the valid hook event names.
@@ -164,7 +164,7 @@ export const hooksConfigSchema = z.object({
     .object({
       PreToolUse: z.array(hookMatcherSchema).optional(),
       PostToolUse: z.array(hookMatcherSchema).optional(),
-      UserPromptSubmit: z.array(hookMatcherSchema).optional(),
+      Start: z.array(hookMatcherSchema).optional(),
       Stop: z.array(hookMatcherSchema).optional(),
     })
     .default({}),
@@ -200,7 +200,12 @@ export interface HookInput {
   readonly toolStatus?: "success" | "error" | undefined;
   /** Tool execution duration in milliseconds, present for PostToolUse events. */
   readonly toolDurationMs?: number | undefined;
-  /** User prompt text, present for UserPromptSubmit events. */
+  /**
+   * Session lifecycle source. Present only for Start events.
+   * "startup" = brand-new thread on Turn 1; "resume" = resumed thread or any subsequent turn.
+   */
+  readonly source?: "startup" | "resume" | undefined;
+  /** User prompt text. Present for Start events. */
   readonly userPrompt?: string | undefined;
   /** Last assistant message text, present for Stop events. */
   readonly lastAssistantMessage?: string | undefined;
@@ -223,6 +228,12 @@ export interface HookOutput {
    * the original tool arguments with this object before executing the tool.
    */
   readonly updatedInput?: Record<string, unknown>;
+  /**
+   * Rewritten user prompt. When present on a Start hook, Greg replaces the user's
+   * original prompt with this value before the model receives it.
+   * An empty or whitespace-only string is ignored; the original prompt is preserved.
+   */
+  readonly updatedPrompt?: string;
   /**
    * Additional context text to inject into the LLM conversation context.
    * The model sees this as supplementary information before generating the next response.

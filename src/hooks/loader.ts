@@ -16,8 +16,8 @@ export interface ResolvedHooksConfig {
   readonly PreToolUse: readonly HookMatcher[];
   /** Ordered PostToolUse matchers. Project matchers precede global matchers. */
   readonly PostToolUse: readonly HookMatcher[];
-  /** Ordered UserPromptSubmit matchers. Project matchers precede global matchers. */
-  readonly UserPromptSubmit: readonly HookMatcher[];
+  /** Ordered Start matchers. Project matchers precede global matchers. */
+  readonly Start: readonly HookMatcher[];
   /** Ordered Stop matchers. Project matchers precede global matchers. */
   readonly Stop: readonly HookMatcher[];
 }
@@ -28,7 +28,7 @@ export interface ResolvedHooksConfig {
 const emptyResolvedHooks: ResolvedHooksConfig = {
   PreToolUse: [],
   PostToolUse: [],
-  UserPromptSubmit: [],
+  Start: [],
   Stop: [],
 };
 
@@ -121,12 +121,12 @@ export async function loadHooksConfig(
     return emptyResolvedHooks;
   }
 
-  const events: readonly HookEvent[] = ["PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop"];
+  const events: readonly HookEvent[] = ["PreToolUse", "PostToolUse", "Start", "Stop"];
 
   const merged: Record<HookEvent, HookMatcher[]> = {
     PreToolUse: [],
     PostToolUse: [],
-    UserPromptSubmit: [],
+    Start: [],
     Stop: [],
   };
 

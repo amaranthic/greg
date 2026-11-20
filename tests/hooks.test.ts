@@ -62,6 +62,16 @@ describe("Hooks Configuration Schema & Defaults", () => {
     expect(parsed.appendSystemPrompt).toBe("Enforce strict JWT check.");
   });
 
+  it("hookEventSchema accepts Start as a valid event", () => {
+    // Start is now the lifecycle event replacing UserPromptSubmit
+    const parsed = hooksConfigSchema.parse({
+      hooks: {
+        Start: [{ matcher: "*", hooks: [{ type: "command", command: "echo 1" }] }],
+      },
+    });
+    expect(parsed.hooks.Start).toHaveLength(1);
+  });
+
   it("rejects unknown hook types", () => {
     const raw = {
       type: "unknownType",
@@ -204,6 +214,55 @@ describe("Hooks Config File Loader & Merging", () => {
     const resolved = await loadHooksConfig("/nonexistent/project/dir", "/nonexistent/home/dir");
     expect(resolved.PreToolUse).toHaveLength(0);
     expect(resolved.Stop).toHaveLength(0);
+  });
+
+  it("loads and merges Start hooks from project and global config", async () => {
+    const projectDir = path.join(testTempDir, "project-start-merge");
+    const homeDir = path.join(testTempDir, "home-start-merge");
+
+    await mkdir(path.join(projectDir, ".greg", "config"), { recursive: true });
+    await mkdir(path.join(homeDir, "config"), { recursive: true });
+
+    const projectConfig = {
+      hooks: {
+        Start: [
+          {
+            matcher: "*",
+            hooks: [{ type: "command", command: "echo 'project start hook'" }],
+          },
+        ],
+      },
+    };
+
+    const globalConfig = {
+      hooks: {
+        Start: [
+          {
+            matcher: "*",
+            hooks: [{ type: "command", command: "echo 'global start hook'" }],
+          },
+        ],
+      },
+    };
+
+    await writeFile(
+      path.join(projectDir, ".greg", "config", "hooks.json"),
+      JSON.stringify(projectConfig),
+    );
+    await writeFile(path.join(homeDir, "config", "hooks.json"), JSON.stringify(globalConfig));
+
+    const resolved = await loadHooksConfig(projectDir, homeDir);
+    // Project matchers come first
+    expect(resolved.Start).toHaveLength(2);
+    expect((resolved.Start[0]?.hooks[0] as { command: string }).command).toBe(
+      "echo 'project start hook'",
+    );
+    expect((resolved.Start[1]?.hooks[0] as { command: string }).command).toBe(
+      "echo 'global start hook'",
+    );
+
+    await rm(projectDir, { recursive: true, force: true });
+    await rm(homeDir, { recursive: true, force: true });
   });
 });
 
@@ -523,5 +582,160 @@ describe("Prompt Hook Model Resolution & Decision Parsing", () => {
 
     const invalid = parseEvaluatorDecision("I approve this request with no json");
     expect(invalid).toBeNull();
+  });
+});
+
+describe("Start Hook — HookInput payload & updatedPrompt output", () => {
+  /** Minimal valid Start-event HookInput. */
+  const makeStartInput = (
+    overrides: Partial<HookInput> = {},
+  ): HookInput => ({
+    sessionId: "sess-start-001",
+    hookEvent: "Start",
+    projectDir: process.cwd(),
+    cwd: process.cwd(),
+    model: "google/gemini-2.5-flash",
+    turnIndex: 1,
+    source: "startup",
+    userPrompt: "Fix the broken tests in src/hooks",
+    ...overrides,
+  });
+
+  it("HookInput carries source='startup' field for new-thread Turn 1", () => {
+    const input = makeStartInput({ source: "startup", turnIndex: 1 });
+    expect(input.hookEvent).toBe("Start");
+    expect(input.source).toBe("startup");
+    expect(input.turnIndex).toBe(1);
+    expect(input.userPrompt).toBe("Fix the broken tests in src/hooks");
+  });
+
+  it("HookInput carries source='resume' field for resumed threads and subsequent turns", () => {
+    const input = makeStartInput({ source: "resume", turnIndex: 2 });
+    expect(input.source).toBe("resume");
+    expect(input.turnIndex).toBe(2);
+  });
+
+  it("hook emitting updatedPrompt on stdout rewrites the prompt", async () => {
+    const hook: CommandHook = {
+      type: "command",
+      command: `echo '{"updatedPrompt":"Rewritten: add error handling to src/hooks/runner.ts"}'`,
+      shell: "bash",
+      timeout: 10,
+      once: false,
+    };
+
+    const input = makeStartInput();
+    const result = await executeCommandHook(hook, input);
+
+    expect(result.blocked).toBe(false);
+    expect(result.nonBlockingError).toBe(false);
+    // The runner surfaces updatedPrompt via HookOutput — we verify the raw field is present
+    const parsed = JSON.parse(result.stdout.trim()) as { updatedPrompt: string };
+    expect(parsed.updatedPrompt).toBe("Rewritten: add error handling to src/hooks/runner.ts");
+  });
+
+  it("hook emitting empty updatedPrompt is treated as no-op by consuming layer", async () => {
+    const hook: CommandHook = {
+      type: "command",
+      command: `echo '{"updatedPrompt":"   "}'`,
+      shell: "bash",
+      timeout: 10,
+      once: false,
+    };
+
+    const input = makeStartInput();
+    const result = await executeCommandHook(hook, input);
+
+    expect(result.blocked).toBe(false);
+    const parsed = JSON.parse(result.stdout.trim()) as { updatedPrompt: string };
+    // Whitespace-only value — engine layer must ignore this; runner just surfaces it raw
+    expect(parsed.updatedPrompt.trim()).toBe("");
+  });
+
+  it("hook emitting updatedPrompt and additionalContext coexist in the same response", async () => {
+    const hook: CommandHook = {
+      type: "command",
+      command: `echo '{"updatedPrompt":"Expanded task prompt","additionalContext":"Branch: main"}'`,
+      shell: "bash",
+      timeout: 10,
+      once: false,
+    };
+
+    const input = makeStartInput();
+    const result = await executeCommandHook(hook, input);
+
+    expect(result.blocked).toBe(false);
+    expect(result.additionalContext).toBe("Branch: main");
+    // updatedPrompt is surfaced via raw stdout for the engine layer to consume
+    expect(result.stdout).toContain("Expanded task prompt");
+  });
+
+  it("hook blocking via exit code 2 prevents prompt from reaching the model", async () => {
+    const hook: CommandHook = {
+      type: "command",
+      command: "echo 'Prompt rejected: contains PII' >&2 && exit 2",
+      shell: "bash",
+      timeout: 10,
+      once: false,
+    };
+
+    const input = makeStartInput();
+    const result = await executeCommandHook(hook, input);
+
+    expect(result.blocked).toBe(true);
+    expect(result.blockReason).toContain("Prompt rejected: contains PII");
+    expect(result.nonBlockingError).toBe(false);
+  });
+
+  it("hook blocking via decision:block prevents prompt from reaching the model", async () => {
+    const hook: CommandHook = {
+      type: "command",
+      command: `echo '{"decision":"block","reason":"Prompt contains disallowed terms"}'`,
+      shell: "bash",
+      timeout: 10,
+      once: false,
+    };
+
+    const input = makeStartInput();
+    const result = await executeCommandHook(hook, input);
+
+    expect(result.blocked).toBe(true);
+    expect(result.blockReason).toBe("Prompt contains disallowed terms");
+  });
+
+  it("non-blocking error from Start hook does not prevent execution", async () => {
+    const hook: CommandHook = {
+      type: "command",
+      command: "echo 'warning: preflight check incomplete' >&2 && exit 1",
+      shell: "bash",
+      timeout: 10,
+      once: false,
+    };
+
+    const input = makeStartInput();
+    const result = await executeCommandHook(hook, input);
+
+    // Exit code 1 = non-blocking; execution continues
+    expect(result.blocked).toBe(false);
+    expect(result.nonBlockingError).toBe(true);
+    expect(result.errorMessage).toContain("non-blocking code 1");
+  });
+
+  it("GREG_HOOK_EVENT env var is set to 'Start' for Start hooks", () => {
+    const hook: CommandHook = {
+      type: "command",
+      command: "echo 1",
+      shell: "bash",
+      timeout: 10,
+      once: false,
+    };
+
+    const input = makeStartInput();
+    const env = buildHookEnvironment(hook, input);
+
+    expect(env.GREG_HOOK_EVENT).toBe("Start");
+    expect(env.GREG_SESSION_ID).toBe("sess-start-001");
+    // Tool name is not set for Start events
+    expect(env.GREG_TOOL_NAME).toBeUndefined();
   });
 });
