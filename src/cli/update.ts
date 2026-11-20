@@ -1,13 +1,12 @@
 /**
- * @fileoverview Subcommand for inspecting and updating the Greg binary to latest or specific versions.
+ * @fileoverview Subcommand for inspecting and updating the Greg binary to the latest or specific versions.
  * @packageDocumentation
  */
 
 import { Command } from "commander";
 import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { chmod, copyFile, mkdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -17,177 +16,133 @@ import { writeToStderr, writeToStdout } from "../utils/index.js";
 
 const execFileAsync = promisify(execFile);
 
-/**
- * Supported release compilation target matrix.
- */
+/** Supported release compilation targets. */
 export type ReleaseTarget =
   "linux-x64" | "linux-arm64" | "android-arm64" | "darwin-x64" | "darwin-arm64" | "windows-x64";
 
-/**
- * Options supported by the `update` subcommand.
- */
+/** Options accepted by the update command. */
 export interface UpdateCommandOptions {
-  /** Whether to only check for the latest release without installing. */
+  /** Check installed version against latest release without installing. */
   readonly check?: boolean | undefined;
-  /** Specific target version to install or roll back to (e.g. 0.1.1). */
+  /** Download binary to current directory only (no moving, no PATH changes). */
+  readonly bare?: boolean | undefined;
+  /** Specific target version to install (e.g. 0.1.9). */
   readonly version?: string | undefined;
 }
 
 /**
- * Detects the runtime host operating system and CPU architecture target.
+ * Detects the host operating system and CPU architecture target.
  *
- * @returns Recognized release target identifier string.
+ * @returns Supported release target identifier string.
  */
 export function detectHostTarget(): ReleaseTarget {
-  const platform = process.platform as string;
+  const platform = process.platform;
   const arch = process.arch === "arm64" ? "arm64" : "x64";
 
-  if (platform === "darwin") {
-    return `darwin-${arch}`;
-  }
+  if (platform === "darwin") return `darwin-${arch}`;
+  if (platform === "win32") return "windows-x64";
+  if (platform === "android" || Boolean(process.env.TERMUX_VERSION)) return "android-arm64";
+  if (platform === "linux") return `linux-${arch}`;
 
-  if (platform === "win32") {
-    return "windows-x64";
-  }
-
-  const isAndroid =
-    platform === "android" ||
-    process.env.TERMUX_VERSION !== undefined ||
-    existsSync("/data/data/com.termux");
-
-  if (isAndroid && arch === "arm64") {
-    return "android-arm64";
-  }
-
-  if (platform === "linux") {
-    return `linux-${arch}`;
-  }
-
-  throw new Error(`Unsupported operating system / architecture: ${platform}/${process.arch}`);
+  throw new Error(`Unsupported OS/Architecture: ${platform}/${process.arch}`);
 }
 
 /**
- * Queries GitHub Releases API for the latest published release tag.
+ * Queries GitHub for the latest published release tag.
  *
  * @returns Clean semantic version string without leading 'v'.
  */
 export async function fetchLatestVersion(): Promise<string> {
-  const url = `https://api.github.com/repos/${gregGitHubRepo}/releases/latest`;
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": `greg/${gregVersion}`,
-      Accept: "application/vnd.github.v3+json",
-    },
+  const apiUrl = `https://api.github.com/repos/${gregGitHubRepo}/releases/latest`;
+  const res = await fetch(apiUrl, {
+    headers: { "User-Agent": `greg/${gregVersion}`, Accept: "application/vnd.github.v3+json" },
+  }).catch(() => null);
+
+  if (res?.ok) {
+    const json = (await res.json()) as { tag_name?: string };
+    if (json.tag_name) return json.tag_name.replace(/^v/, "").trim();
+  }
+
+  // Fallback to HTTP redirect location
+  const redirectRes = await fetch(`https://github.com/${gregGitHubRepo}/releases/latest`, {
+    redirect: "manual",
   });
+  const location = redirectRes.headers.get("location") ?? "";
+  const tag = location.split("/").pop()?.replace(/^v/, "").trim();
+  if (tag) return tag;
 
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch latest release from GitHub (HTTP ${response.status}: ${response.statusText})`,
-    );
-  }
-
-  const payload = (await response.json()) as { tag_name?: string };
-  if (!payload.tag_name || typeof payload.tag_name !== "string") {
-    throw new Error("Invalid GitHub release payload: missing tag_name");
-  }
-
-  return payload.tag_name.replace(/^v/, "").trim();
+  throw new Error("Unable to fetch latest release version from GitHub");
 }
 
 /**
- * Fetches SHA256SUMS.txt from the release assets and verifies the downloaded archive checksum.
+ * Renders the terminal progress bar matching the installer styling.
  *
- * @param targetVersion - The release version tag being installed.
- * @param archiveFilename - The exact filename of the release archive.
- * @param archiveBuffer - The in-memory buffer of the downloaded archive.
+ * @param bytes - Received bytes.
+ * @param total - Total expected bytes.
  */
-export async function verifyArchiveChecksum(
-  targetVersion: string,
-  archiveFilename: string,
-  archiveBuffer: Buffer,
-): Promise<void> {
-  const checksumsUrl = `https://github.com/${gregGitHubRepo}/releases/download/v${targetVersion}/SHA256SUMS.txt`;
-  const response = await fetch(checksumsUrl, {
-    headers: {
-      "User-Agent": `greg/${gregVersion}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch release SHA256SUMS.txt (HTTP ${response.status})`);
-  }
-
-  const checksumsText = await response.text();
-  const lines = checksumsText.split(/\r?\n/);
-
-  let expectedHash: string | undefined;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      continue;
-    }
-    const parts = trimmed.split(/\s+/);
-    if (parts.length >= 2 && parts[1]?.replace(/^\*/, "") === archiveFilename) {
-      expectedHash = parts[0]?.toLowerCase();
-      break;
-    }
-  }
-
-  if (!expectedHash) {
-    throw new Error(`Checksum for "${archiveFilename}" not found in SHA256SUMS.txt`);
-  }
-
-  const actualHash = createHash("sha256").update(archiveBuffer).digest("hex").toLowerCase();
-  if (actualHash !== expectedHash) {
-    throw new Error(
-      `Checksum verification failed for ${archiveFilename} (expected ${expectedHash}, got ${actualHash})`,
-    );
-  }
-
-  writeToStdout(
-    `${brandColors.muted}Verified checksum: ${brandColors.reset}sha256:${actualHash.slice(0, 8)}...\n`,
+function renderProgressBar(bytes: number, total: number): void {
+  if (total <= 0) return;
+  const percent = Math.min(100, Math.floor((bytes * 100) / total));
+  const width = 50;
+  const on = Math.floor((percent * width) / 100);
+  const off = width - on;
+  const filled = "▰".repeat(on);
+  const empty = "▱".repeat(off);
+  process.stderr.write(
+    `\r${brandColors.orange}${filled}${brandColors.muted}${empty} ${brandColors.orange}${String(percent).padStart(3)}%${brandColors.reset}`,
   );
 }
 
 /**
- * Updates internal and environment symlinks to point to the specified binary path.
+ * Downloads a release archive with progress indicator.
  *
- * @param binDir - Target bin directory containing the internal symlink.
- * @param binaryName - Name of the binary (e.g. "greg" or "greg.exe").
- * @param installedBinaryPath - Absolute path to the versioned executable binary.
+ * @param url - Asset download URL.
+ * @returns In-memory Buffer of the downloaded asset.
  */
-export async function updateSymlinks(
-  binDir: string,
-  binaryName: string,
-  installedBinaryPath: string,
-): Promise<void> {
-  const activeInternalSymlink = path.join(binDir, binaryName);
-  try {
-    await unlink(activeInternalSymlink);
-  } catch {
-    // Symlink may not exist yet
+async function downloadArchiveWithProgress(url: string): Promise<Buffer> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new Error("Release asset not found for this platform target");
+    }
+    throw new Error(`Download failed with HTTP status ${res.status}`);
   }
-  await symlink(installedBinaryPath, activeInternalSymlink);
 
-  if (process.env.PREFIX) {
-    const termuxSymlink = path.join(process.env.PREFIX, "bin", binaryName);
-    try {
-      await unlink(termuxSymlink);
-    } catch {
-      // Symlink may not exist yet
-    }
-    try {
-      await symlink(activeInternalSymlink, termuxSymlink);
-    } catch {
-      // Best-effort prefix symlink update
+  const contentLength = Number(res.headers.get("content-length") || 0);
+  const reader = res.body?.getReader();
+  if (!reader) {
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  const isTTY = Boolean(process.stderr.isTTY);
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      chunks.push(value);
+      received += value.length;
+      if (contentLength > 0 && isTTY) {
+        renderProgressBar(received, contentLength);
+      }
     }
   }
+
+  if (contentLength > 0 && isTTY) {
+    renderProgressBar(contentLength, contentLength);
+    process.stderr.write("\n");
+  }
+
+  return Buffer.concat(chunks);
 }
 
 /**
- * Executes the `update` subcommand flow.
+ * Executes the `update` subcommand workflow.
  *
- * @param options - Parsed update options.
+ * @param options - Parsed command options.
  */
 export async function executeUpdateAction(options: UpdateCommandOptions): Promise<void> {
   const currentVersion = gregVersion;
@@ -195,132 +150,98 @@ export async function executeUpdateAction(options: UpdateCommandOptions): Promis
   // 1. Check mode
   if (options.check) {
     try {
-      const latestVersion = await fetchLatestVersion();
-      if (latestVersion !== currentVersion) {
-        writeToStdout(
-          `${brandColors.muted}Update available: ${brandColors.reset}${currentVersion} ${brandColors.muted}→ ${brandColors.reset}${latestVersion}\n${brandColors.muted}Run ${brandColors.reset}greg update${brandColors.muted} to install.${brandColors.reset}\n`,
-        );
-      } else {
-        writeToStdout(`${brandColors.muted}Up to date: ${brandColors.reset}${currentVersion}\n`);
-      }
-      return;
-    } catch (checkErr) {
-      writeToStderr(
-        `${brandColors.red}Error: ${(checkErr as Error).message}${brandColors.reset}\n`,
+      writeToStdout(
+        `${brandColors.muted}Installed version: ${brandColors.reset}${currentVersion}\n`,
       );
+      const latest = await fetchLatestVersion();
+      writeToStdout(`${brandColors.muted}Latest version:    ${brandColors.reset}${latest}\n`);
+      return;
+    } catch (err) {
+      writeToStderr(`${brandColors.red}Error: ${(err as Error).message}${brandColors.reset}\n`);
       process.exit(1);
     }
   }
 
   // 2. Resolve target version
-  let targetVersion: string;
-  if (options.version && options.version.trim().length > 0) {
-    targetVersion = options.version.trim().replace(/^v/, "");
-  } else {
+  let targetVersion = options.version?.trim().replace(/^v/, "");
+  if (!targetVersion) {
     try {
-      const latest = await fetchLatestVersion();
-      targetVersion = latest;
-    } catch (resolveErr) {
-      writeToStderr(
-        `${brandColors.red}Error: ${(resolveErr as Error).message}${brandColors.reset}\n`,
-      );
+      targetVersion = await fetchLatestVersion();
+    } catch (err) {
+      writeToStderr(`${brandColors.red}Error: ${(err as Error).message}${brandColors.reset}\n`);
       process.exit(1);
     }
   }
 
-  // 3. Detect host platform target
+  // 3. Platform detection and asset resolution
   let target: ReleaseTarget;
   try {
     target = detectHostTarget();
-  } catch (detectErr) {
-    writeToStderr(`${brandColors.red}Error: ${(detectErr as Error).message}${brandColors.reset}\n`);
+  } catch (err) {
+    writeToStderr(`${brandColors.red}Error: ${(err as Error).message}${brandColors.reset}\n`);
     process.exit(1);
   }
 
   const isWindows = target.startsWith("windows");
   const ext = isWindows ? ".zip" : ".tar.gz";
   const binaryName = isWindows ? "greg.exe" : "greg";
+  const assetName = `greg-v${targetVersion}-${target}${ext}`;
+  const downloadUrl = `https://github.com/${gregGitHubRepo}/releases/download/v${targetVersion}/${assetName}`;
 
-  const homeDir = resolveHomeDirectory();
-  const binDir = path.join(homeDir, "bin");
-  const targetVersionDir = path.join(binDir, targetVersion);
-  const installedBinaryPath = path.join(targetVersionDir, binaryName);
-
-  // If target version binary is already installed, update symlink and exit
-  if (existsSync(installedBinaryPath)) {
-    await updateSymlinks(binDir, binaryName, installedBinaryPath);
-    if (targetVersion === currentVersion && !options.version) {
-      writeToStdout(
-        `${brandColors.muted}Already on latest version: ${brandColors.reset}${currentVersion}\n`,
-      );
-    } else {
-      writeToStdout(
-        `${brandColors.muted}Version ${brandColors.reset}${targetVersion} ${brandColors.muted}is already installed, updated symlink${brandColors.reset}\n`,
-      );
-    }
-    return;
-  }
-
-  const archiveFilename = `greg-v${targetVersion}-${target}${ext}`;
-  const downloadUrl = `https://github.com/${gregGitHubRepo}/releases/download/v${targetVersion}/${archiveFilename}`;
-
+  writeToStdout(`${brandColors.muted}Installed version: ${brandColors.reset}${currentVersion}\n`);
   writeToStdout(
-    `${brandColors.muted}Downloading ${brandColors.reset}v${targetVersion} ${brandColors.muted}(${target})...${brandColors.reset}\n`,
+    `\n${brandColors.muted}Installing ${brandColors.reset}greg ${brandColors.muted}version: ${brandColors.reset}${targetVersion}\n`,
   );
 
-  const tempDir = await rm(path.join(os.tmpdir(), `greg-update-${Date.now()}`), {
-    recursive: true,
-    force: true,
-  }).then(async () => {
-    const dir = path.join(os.tmpdir(), `greg-update-${Date.now()}`);
-    await mkdir(dir, { recursive: true });
-    return dir;
-  });
-
-  const archivePath = path.join(tempDir, archiveFilename);
+  // 4. Download and extract directly to HERNEX_HOME/bin/greg
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), "greg-update-"));
+  const archivePath = path.join(tempDir, assetName);
 
   try {
-    const downloadResponse = await fetch(downloadUrl);
-    if (!downloadResponse.ok) {
-      if (downloadResponse.status === 404) {
-        throw new Error(
-          `Version "${targetVersion}" is not available for target "${target}". Visit https://github.com/${gregGitHubRepo}/releases`,
-        );
-      }
-      throw new Error(
-        `Failed to download release archive (HTTP ${downloadResponse.status}: ${downloadResponse.statusText})`,
-      );
-    }
-
-    const arrayBuffer = await downloadResponse.arrayBuffer();
-    const archiveBuffer = Buffer.from(arrayBuffer);
-
-    // Verify SHA-256 checksum from release SHA256SUMS.txt
-    await verifyArchiveChecksum(targetVersion, archiveFilename, archiveBuffer);
-
+    const archiveBuffer = await downloadArchiveWithProgress(downloadUrl);
     await writeFile(archivePath, archiveBuffer);
 
-    // Extract archive
     if (isWindows) {
-      await execFileAsync("tar", ["-xf", archivePath, "-C", tempDir]);
+      await execFileAsync("unzip", ["-q", "-o", archivePath, "-d", tempDir]);
     } else {
       await execFileAsync("tar", ["-xzf", archivePath, "-C", tempDir]);
     }
 
-    const extractedBinaryPath = path.join(tempDir, binaryName);
-    if (!existsSync(extractedBinaryPath)) {
-      throw new Error(`Extracted archive did not contain binary "${binaryName}"`);
+    const extractedBin = path.join(tempDir, binaryName);
+    if (!existsSync(extractedBin)) {
+      throw new Error(`Extracted archive did not contain "${binaryName}"`);
     }
 
-    // Save binary to versioned target directory HERNEX_HOME/bin/<version>/
-    await mkdir(targetVersionDir, { recursive: true });
-    await copyFile(extractedBinaryPath, installedBinaryPath);
-    await chmod(installedBinaryPath, 0o755);
+    // Handle --bare: place binary in current directory
+    if (options.bare) {
+      const destPath = path.resolve(process.cwd(), binaryName);
+      await copyFile(extractedBin, destPath);
+      await chmod(destPath, 0o755);
+      writeToStdout(
+        `${brandColors.muted}Placed ${brandColors.reset}${binaryName} ${brandColors.muted}in current directory.${brandColors.reset}\n`,
+      );
+      return;
+    }
 
-    // Update active symlinks without pruning older versions
-    await updateSymlinks(binDir, binaryName, installedBinaryPath);
+    const homeDir = resolveHomeDirectory();
+    const binDir = path.join(homeDir, "bin");
+    await mkdir(binDir, { recursive: true });
 
-    writeToStdout(`${brandColors.muted}Installed version: ${brandColors.reset}${targetVersion}\n`);
+    const targetBin = path.join(binDir, binaryName);
+    await copyFile(extractedBin, targetBin);
+    await chmod(targetBin, 0o755);
+
+    // 5. Success summary banner matching installer
+    writeToStdout(
+      `\n${brandColors.muted}The post-modern autonomous print agent, to start:${brandColors.reset}\n\n`,
+    );
+    writeToStdout(`greg --help            ${brandColors.muted}# Show help${brandColors.reset}\n`);
+    writeToStdout(
+      `greg "Hello World"     ${brandColors.muted}# Run prompt${brandColors.reset}\n\n`,
+    );
+    writeToStdout(
+      `${brandColors.muted}For more information visit ${brandColors.reset}https://github.com/${gregGitHubRepo}\n\n`,
+    );
   } catch (err) {
     writeToStderr(`${brandColors.red}Error: ${(err as Error).message}${brandColors.reset}\n`);
     process.exit(1);
@@ -332,22 +253,15 @@ export async function executeUpdateAction(options: UpdateCommandOptions): Promis
 /**
  * Creates the commander Command for the `update` subcommand.
  *
- * @returns Fully configured commander Command instance for `update`.
- *
- * @example
- * ```typescript
- * const updateCmd = createUpdateCommand();
- * program.addCommand(updateCmd);
- * ```
+ * @returns Configured commander Command instance for `update`.
  */
 export function createUpdateCommand(): Command {
-  const update = new Command("update")
+  return new Command("update")
     .description("Update greg to the latest or a specified version")
     .option("-c, --check", "Check for the latest available version without installing")
-    .option("-v, --version <version>", "Specific version to install (e.g. 0.1.1)")
+    .option("-b, --bare", "Download binary to current directory only (no moving, no PATH changes)")
+    .option("-v, --version <version>", "Specific version to install (e.g. 0.1.9)")
     .action(async (options: UpdateCommandOptions) => {
       await executeUpdateAction(options);
     });
-
-  return update;
 }

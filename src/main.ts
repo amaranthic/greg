@@ -33,6 +33,7 @@ export function createProgram(): Command {
   program
     .name("greg")
     .version(gregVersion, "-v, --version", "Display version information")
+    .enablePositionalOptions()
     .description("The post-modern autonomous print agent powered by Hernex")
     .argument("[prompt]", "Instruction prompt for the agent (reads from piped stdin if omitted)")
     .option(
