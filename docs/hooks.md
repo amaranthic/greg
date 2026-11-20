@@ -215,7 +215,7 @@ In addition to `stdin`, `greg` injects the following environment variables:
 | `GREG_SESSION_ID`       | Safe thread identifier              | `7b2c6114-...`                |
 | `GREG_TURN_INDEX`       | 1-based turn number                 | `1`                           |
 | `GREG_MODEL`            | Active model identifier             | `anthropic/claude-sonnet-4-6` |
-| `GREG_VERSION`          | Installed greg version              | `0.1.9`                       |
+| `GREG_VERSION`          | Installed greg version              | `0.1.10`                      |
 | `GREG_TOOL_NAME`        | Active tool name (if applicable)    | `Bash` or `Write`             |
 | `GREG_TOOL_STATUS`      | Execution status (PostToolUse only) | `success` or `error`          |
 | `GREG_TOOL_DURATION_MS` | Tool elapsed milliseconds           | `124`                         |

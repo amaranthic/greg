@@ -17,7 +17,7 @@ Usage: install.sh [options]
 
 Options:
     -h, --help              Display this help message
-    -v, --version <version> Install a specific version (e.g., 0.1.9)
+    -v, --version <version> Install a specific version (e.g., 0.1.10)
     -c, --check             Check installed version against latest release
     -b, --bare              Download binary to current directory only (no moving, no PATH changes)
         --binary <path>     Install from a local binary instead of downloading
@@ -25,7 +25,7 @@ Options:
 
 Examples:
     curl -fsSL https://raw.githubusercontent.com/${REPO}/main/installer/install.sh | bash
-    curl -fsSL https://raw.githubusercontent.com/${REPO}/main/installer/install.sh | bash -s -- --version 0.1.9
+    curl -fsSL https://raw.githubusercontent.com/${REPO}/main/installer/install.sh | bash -s -- --version 0.1.10
     curl -fsSL https://raw.githubusercontent.com/${REPO}/main/installer/install.sh | bash -s -- --bare
     ./install.sh --check
 EOF

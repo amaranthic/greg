@@ -63,10 +63,26 @@ You can customize the installation by passing arguments through `bash -s -- [opt
 Install an exact version of `greg` rather than latest:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash -s -- --version 0.1.9
+curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash -s -- --version 0.1.10
 ```
 
-#### 2. Prevent Modifying Shell Profiles
+#### 2. Bare Download (Local Directory)
+
+Download the binary directly into your current directory without moving it or modifying shell configuration:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash -s -- --bare
+```
+
+#### 3. Check Latest Available Version
+
+Inspect the latest published release without downloading:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash -s -- --check
+```
+
+#### 4. Prevent Modifying Shell Profiles
 
 If you manage your `PATH` manually (e.g. through dotfiles or Nix):
 
@@ -74,7 +90,7 @@ If you manage your `PATH` manually (e.g. through dotfiles or Nix):
 curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash -s -- --no-modify-path
 ```
 
-#### 3. Install from a Local Binary
+#### 5. Install from a Local Binary
 
 Install a binary you built locally without downloading from GitHub:
 
@@ -160,7 +176,7 @@ Open a fresh terminal window and run:
 greg --version
 ```
 
-If the installation succeeded, `greg` prints its version number (e.g. `greg 0.1.9`).
+If the installation succeeded, `greg` prints its version number (e.g. `greg 0.1.10`).
 
 Next, run a quick dry-run check:
 
@@ -190,12 +206,20 @@ Download and apply the latest release:
 greg update
 ```
 
+### Bare Download to Current Directory
+
+Download the binary to your current working directory without modifying system `PATH`:
+
+```bash
+greg update --bare
+```
+
 ### Pin or Roll Back to a Specific Version
 
 Install an exact historical release:
 
 ```bash
-greg update --version 0.1.0
+greg update --version 0.1.10
 ```
 
 ---

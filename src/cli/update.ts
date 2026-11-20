@@ -26,7 +26,7 @@ export interface UpdateCommandOptions {
   readonly check?: boolean | undefined;
   /** Download binary to current directory only (no moving, no PATH changes). */
   readonly bare?: boolean | undefined;
-  /** Specific target version to install (e.g. 0.1.9). */
+  /** Specific target version to install (e.g. 0.1.10). */
   readonly version?: string | undefined;
 }
 
@@ -260,7 +260,7 @@ export function createUpdateCommand(): Command {
     .description("Update greg to the latest or a specified version")
     .option("-c, --check", "Check for the latest available version without installing")
     .option("-b, --bare", "Download binary to current directory only (no moving, no PATH changes)")
-    .option("-v, --version <version>", "Specific version to install (e.g. 0.1.9)")
+    .option("-v, --version <version>", "Specific version to install (e.g. 0.1.10)")
     .action(async (options: UpdateCommandOptions) => {
       await executeUpdateAction(options);
     });
