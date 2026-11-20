@@ -857,7 +857,7 @@ export async function executePrintRun(
             if (event.type === "toolExecutionStarted") {
               logger.toolStart(event.toolName);
             } else if (event.type === "toolExecutionFinished") {
-              logger.toolFinish(event.toolName, event.isError);
+              logger.toolFinish(event.toolName, event.isError, event.durationMs);
             } else if (event.type === "error" && event.isFatal) {
               modelTurnFailed = true;
               exitCode = exitCodes.runtimeError;

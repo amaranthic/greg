@@ -1,6 +1,6 @@
 {
   "name": "greg",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "The post-modern autonomous print agent powered by Hernex",
   "type": "module",
   "bin": {
@@ -20,8 +20,8 @@
     "dev": "bun --watch run src/main.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "bun fmt",
+    "format:check": "bun fmt --check",
     "build": "bun build --compile --no-env-file src/main.ts --outfile=greg"
   },
   "dependencies": {
@@ -32,7 +32,6 @@
   "devDependencies": {
     "@types/bun": "^1.4.4",
     "@types/node": "^22.13.9",
-    "prettier": "^3.5.3",
     "typescript": "^5.8.2"
   },
   "author": "Amaranthic",

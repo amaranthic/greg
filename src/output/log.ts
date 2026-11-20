@@ -56,17 +56,22 @@ export class StderrLogger {
   }
 
   /**
-   * Logs tool completion and outcome.
+   * Logs tool completion, outcome, and execution duration.
    *
    * @param toolName - Name of the tool that finished.
    * @param isError - Whether execution resulted in failure.
+   * @param durationMs - Optional execution duration in milliseconds.
    */
-  public toolFinish(toolName: string, isError: boolean): void {
+  public toolFinish(toolName: string, isError: boolean, durationMs?: number): void {
     if (!this.isVerbose) {
       return;
     }
     const status = isError ? "error" : "done";
-    this.writeLine(`<- tool: ${toolName} [${status}]`);
+    const durationSuffix =
+      typeof durationMs === "number" && !Number.isNaN(durationMs)
+        ? ` ${Math.round(durationMs)}ms`
+        : "";
+    this.writeLine(`<- tool: ${toolName} [${status}${durationSuffix}]`);
   }
 
   /**

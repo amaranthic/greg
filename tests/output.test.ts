@@ -8,6 +8,7 @@ import {
   createOutputSink,
   installStreamJsonStdoutGuard,
   restoreStdoutGuard,
+  StderrLogger,
   stdoutGuardMarker,
 } from "../src/output/index.js";
 
@@ -202,6 +203,53 @@ describe("StreamJson Stdout Guard", () => {
     } finally {
       restoreStdoutGuard();
       process.stderr.write = origStderr;
+    }
+  });
+});
+
+describe("StderrLogger Diagnostics", () => {
+  it("logs tool start and completion with execution duration in verbose mode", () => {
+    let stderrOutput = "";
+    const originalStderrWrite = process.stderr.write;
+    process.stderr.write = (chunk: any) => {
+      stderrOutput += chunk.toString();
+      return true;
+    };
+
+    try {
+      const logger = new StderrLogger({ isVerbose: true });
+      logger.toolStart("Read", "src/main.ts");
+      logger.toolFinish("Read", false, 42.4);
+      logger.toolStart("Bash", "bun test");
+      logger.toolFinish("Bash", true, 125);
+      logger.toolFinish("Glob", false);
+
+      expect(stderrOutput).toContain("-> tool: Read (src/main.ts)...");
+      expect(stderrOutput).toContain("<- tool: Read [done 42ms]");
+      expect(stderrOutput).toContain("-> tool: Bash (bun test)...");
+      expect(stderrOutput).toContain("<- tool: Bash [error 125ms]");
+      expect(stderrOutput).toContain("<- tool: Glob [done]");
+    } finally {
+      process.stderr.write = originalStderrWrite;
+    }
+  });
+
+  it("suppresses tool start and completion output when verbose mode is disabled", () => {
+    let stderrOutput = "";
+    const originalStderrWrite = process.stderr.write;
+    process.stderr.write = (chunk: any) => {
+      stderrOutput += chunk.toString();
+      return true;
+    };
+
+    try {
+      const logger = new StderrLogger({ isVerbose: false });
+      logger.toolStart("Read", "src/main.ts");
+      logger.toolFinish("Read", false, 50);
+
+      expect(stderrOutput).toBe("");
+    } finally {
+      process.stderr.write = originalStderrWrite;
     }
   });
 });
