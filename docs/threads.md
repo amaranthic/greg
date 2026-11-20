@@ -13,12 +13,12 @@ Looking for practical everyday examples of continuing sessions and reverting che
 
 This page covers:
 
-* [How Threads Work](#how-threads-work): Workspace isolation, on-disk storage, automatic titles, and coupling with checkpoints.
-* [Continuing & Resuming Sessions](#continuing-resuming-sessions): Continuing the latest thread (`-c`), resuming by ID (`-r`), and time-travel branching (`--resume-session-at`).
-* [Time-Travel Checkpoints & Safe Undo](#time-travel-checkpoints-safe-undo): Pre-mutation SHA-256 snapshots, viewing diffs, dry-run planning, and restoring files.
-* [Managing Threads Subcommand Tree (`greg threads`)](#managing-threads-subcommand-tree-greg-threads): Listing, showing, creating, resuming, forking, exporting transcripts, pruning, and deleting sessions.
-* [Execution Modifiers for Threads](#execution-modifiers-for-threads): CLI flags for controlling persistence, timeouts, reasoning effort, and turn limits.
-* [Next Steps](#next-steps): Next guides to explore.
+- [How Threads Work](#how-threads-work): Workspace isolation, on-disk storage, automatic titles, and coupling with checkpoints.
+- [Continuing & Resuming Sessions](#continuing-resuming-sessions): Continuing the latest thread (`-c`), resuming by ID (`-r`), and time-travel branching (`--resume-session-at`).
+- [Time-Travel Checkpoints & Safe Undo](#time-travel-checkpoints-safe-undo): Pre-mutation SHA-256 snapshots, viewing diffs, dry-run planning, and restoring files.
+- [Managing Threads Subcommand Tree (`greg threads`)](#managing-threads-subcommand-tree-greg-threads): Listing, showing, creating, resuming, forking, exporting transcripts, pruning, and deleting sessions.
+- [Execution Modifiers for Threads](#execution-modifiers-for-threads): CLI flags for controlling persistence, timeouts, reasoning effort, and turn limits.
+- [Next Steps](#next-steps): Next guides to explore.
 
 ---
 
@@ -147,6 +147,7 @@ Created: 2026-11-19T13:30:00.000Z
 ```
 
 To emit machine-readable JSON for tooling:
+
 ```bash
 greg checkpoints diff 1 --json
 ```
@@ -164,6 +165,7 @@ greg checkpoints restore "e2a3b4c5-6789-01ab-cdef-234567890abc"
 ```
 
 #### Preflight Inspection (`--dry-run`)
+
 Before rolling back files on disk, inspect the planned restoration actions and verify potential conflicts:
 
 ```bash
@@ -173,6 +175,7 @@ greg checkpoints restore 1 --dry-run
 Outputs the restoration plan (files to restore, delete, or potential conflicts) in JSON without touching any files on disk.
 
 #### Force Restoration (`--force`)
+
 If files in your workspace were modified outside of `greg` after the checkpoint was created, `greg` will guard against overwriting external changes. Pass `--force` to override conflicts:
 
 ```bash
@@ -186,6 +189,7 @@ greg checkpoints restore 1 --force
 `greg` provides a comprehensive `threads` subcommand tree to inspect, branch, and maintain your session history:
 
 ### 1. List Threads
+
 List recent threads for the current workspace (shows ID, title, turn count, model, status, and last update timestamp):
 
 ```bash
@@ -193,10 +197,12 @@ greg threads list
 ```
 
 Options:
-* `-n, --limit <number>`: Maximum number of threads to list (default: 20).
-* `--working-directory <dir>`: Filter threads by an alternative workspace path.
+
+- `-n, --limit <number>`: Maximum number of threads to list (default: 20).
+- `--working-directory <dir>`: Filter threads by an alternative workspace path.
 
 ### 2. Show Thread Details
+
 View complete metadata, working directory, model, reasoning level, and turn metrics for a specific session:
 
 ```bash
@@ -204,6 +210,7 @@ greg threads show <thread-id>
 ```
 
 ### 3. Create a Thread Explicitly
+
 Initialize a new persistent conversation thread before executing tasks:
 
 ```bash
@@ -211,6 +218,7 @@ greg threads create --title "User Authentication Refactor"
 ```
 
 ### 4. Resume a Thread via Subcommand
+
 Resume a thread directly using the subcommand, optionally passing your next prompt:
 
 ```bash
@@ -222,6 +230,7 @@ greg threads resume <thread-id> "Run the test suite now"
 ```
 
 ### 5. Fork a Thread for Divergent Experiments
+
 Branch an existing session into a brand new thread. The new thread inherits the full transcript history of the parent thread, allowing you to experiment with divergent approaches without altering the original:
 
 ```bash
@@ -229,11 +238,13 @@ greg threads fork <thread-id> --title "Alternative caching implementation"
 ```
 
 You can also fork up to a specific transcript sequence number using `--at-sequence`:
+
 ```bash
 greg threads fork <thread-id> --at-sequence 4
 ```
 
 ### 6. Export Session Transcripts
+
 Display or pipe the complete structured event log of a session (user prompts, model messages, tool calls, and outputs):
 
 ```bash
@@ -241,10 +252,12 @@ greg threads transcript <thread-id> > session-transcript.json
 ```
 
 Options:
-* `-n, --limit <number>`: Maximum number of entries to return.
-* `--after <sequence>`: Only return transcript events recorded after this sequence number.
+
+- `-n, --limit <number>`: Maximum number of entries to return.
+- `--after <sequence>`: Only return transcript events recorded after this sequence number.
 
 ### 7. Prune & Purge Threads
+
 Clean up disk space by pruning the oldest conversation threads or purging all sessions:
 
 ```bash
@@ -270,6 +283,7 @@ The `-y` (`--yes`) flag bypasses the interactive confirmation prompt (`[y/N]`) a
 </Note>
 
 ### 8. Delete a Thread Permanently
+
 Permanently delete an individual thread and its transcript history from disk:
 
 ```bash
@@ -282,16 +296,16 @@ greg threads delete <thread-id>
 
 When running or resuming a thread, customize execution behavior with dedicated flags:
 
-| Flag | Description | Example |
-| :--- | :--- | :--- |
-| `--no-session-persistence` | Run ephemerally in memory without writing thread logs or checkpoints to disk | `greg "Review diff" --no-session-persistence` |
-| `--bare` | Suppress hooks, ambient instruction files, and persistent settings | `greg "Task" --bare` |
-| `--effort <level>` | Reasoning effort (`none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) | `greg -c "Task" --effort high` |
-| `--max-turns <number>` | Ceiling for agent turn loop steps before stopping | `greg -c "Fix bug" --max-turns 15` |
-| `--timeout <duration>` | Wall-clock execution timeout (e.g. `10m`, `30s`) | `greg "Refactor" --timeout 5m` |
-| `--json-schema <schema>` | Enforce structured output validated against a JSON Schema | `greg "Parse logs" --json-schema '{...}'` |
-| `--system-prompt <prompt>` | Override default system instructions | `greg "Task" --system-prompt "..."` |
-| `--append-system-prompt <prompt>` | Append custom instructions to the active prompt | `greg "Task" --append-system-prompt "..."` |
+| Flag                              | Description                                                                   | Example                                       |
+| :-------------------------------- | :---------------------------------------------------------------------------- | :-------------------------------------------- |
+| `--no-session-persistence`        | Run ephemerally in memory without writing thread logs or checkpoints to disk  | `greg "Review diff" --no-session-persistence` |
+| `--bare`                          | Suppress hooks, ambient instruction files, and persistent settings            | `greg "Task" --bare`                          |
+| `--effort <level>`                | Reasoning effort (`none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) | `greg -c "Task" --effort high`                |
+| `--max-turns <number>`            | Ceiling for agent turn loop steps before stopping                             | `greg -c "Fix bug" --max-turns 15`            |
+| `--timeout <duration>`            | Wall-clock execution timeout (e.g. `10m`, `30s`)                              | `greg "Refactor" --timeout 5m`                |
+| `--json-schema <schema>`          | Enforce structured output validated against a JSON Schema                     | `greg "Parse logs" --json-schema '{...}'`     |
+| `--system-prompt <prompt>`        | Override default system instructions                                          | `greg "Task" --system-prompt "..."`           |
+| `--append-system-prompt <prompt>` | Append custom instructions to the active prompt                               | `greg "Task" --append-system-prompt "..."`    |
 
 ---
 
@@ -299,6 +313,6 @@ When running or resuming a thread, customize execution behavior with dedicated f
 
 Now that you understand session persistence and rollback mechanics:
 
-* [Common Workflows](/common-workflows): Explore step-by-step recipes for bug fixing, refactoring, and test automation.
-* [Managing Providers](/model-providers): Configure your preferred model, reasoning effort levels, and automatic fallback chains.
-* [Quickstart](/quickstart): Return to the quickstart to practice everyday agent commands.
+- [Common Workflows](/common-workflows): Explore step-by-step recipes for bug fixing, refactoring, and test automation.
+- [Managing Providers](/model-providers): Configure your preferred model, reasoning effort levels, and automatic fallback chains.
+- [Quickstart](/quickstart): Return to the quickstart to practice everyday agent commands.

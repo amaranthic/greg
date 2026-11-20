@@ -13,14 +13,14 @@ For the underlying architectural mechanics of how the policy guardrail integrate
 
 This page covers:
 
-* [The Fail-Closed Security Model](#the-fail-closed-security-model): Why non-interactive autonomous agents must fail closed.
-* [Declarative Permission Modes](#declarative-permission-modes): Comparing `default`, `acceptEdits`, `plan`, and `bypassPermissions`.
-* [Wildcard Scoped Tool Rules](#wildcard-scoped-tool-rules): Syntax, target normalization, and compilation for `Tool(pattern)`.
-* [Denial Precedence](#denial-precedence): Why `--disallowed-tools` strictly overrules allow rules.
-* [TaskManager & Shell Coupling](#taskmanager-shell-coupling): Why background processes require explicit Bash authorization.
-* [Configuring Permissions](#configuring-permissions): Applying rules via CLI flags and persistent `settings.json`.
-* [Security Best Practices](#security-best-practices): Hardening configurations for local machines, CI runners, and shared environments.
-* [Next Steps](#next-steps): Guided links to deeper guides.
+- [The Fail-Closed Security Model](#the-fail-closed-security-model): Why non-interactive autonomous agents must fail closed.
+- [Declarative Permission Modes](#declarative-permission-modes): Comparing `default`, `acceptEdits`, `plan`, and `bypassPermissions`.
+- [Wildcard Scoped Tool Rules](#wildcard-scoped-tool-rules): Syntax, target normalization, and compilation for `Tool(pattern)`.
+- [Denial Precedence](#denial-precedence): Why `--disallowed-tools` strictly overrules allow rules.
+- [TaskManager & Shell Coupling](#taskmanager-shell-coupling): Why background processes require explicit Bash authorization.
+- [Configuring Permissions](#configuring-permissions): Applying rules via CLI flags and persistent `settings.json`.
+- [Security Best Practices](#security-best-practices): Hardening configurations for local machines, CI runners, and shared environments.
+- [Next Steps](#next-steps): Guided links to deeper guides.
 
 ---
 
@@ -56,7 +56,7 @@ flowchart TD
 ```
 
 1. **Deterministic Evaluation**: Every tool call is evaluated against compiled wildcard regular expressions before touching disk or spawning child processes.
-2. **Contextual Rejection Feedback**: When an action is denied, `greg` injects a structured denial reason into the model's message history. The model understands *why* it was blocked and can adjust its strategy without crashing the run.
+2. **Contextual Rejection Feedback**: When an action is denied, `greg` injects a structured denial reason into the model's message history. The model understands _why_ it was blocked and can adjust its strategy without crashing the run.
 3. **Audit Trail**: Every denial is recorded in run metrics and logged to `stderr`.
 
 ---
@@ -65,16 +65,17 @@ flowchart TD
 
 `greg` provides four built-in permission modes specified via `--permission-mode <mode>`:
 
-| Mode | Read Tools (`Read`, `Glob`, `Grep`, `Lsp`, `WebFetch`) | File Mutations (`Write`, `Edit`) | Shell Execution (`Bash`) | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **`default`** | **Allowed** | Denied | Denied | **Strict read-only analysis.** Ideal for codebase exploration, code reviews, and answering architecture queries. |
-| **`acceptEdits`** | **Allowed** | **Allowed** | Denied | **Safe autonomous coding.** Allows file creation and edits, but blocks arbitrary shell commands unless authorized. |
-| **`plan`** | **Allowed** | *Hidden* | *Hidden* | **Reconnaissance mode.** Mutation and shell tools are completely removed from model schemas before invocation. |
-| **`bypassPermissions`** | **Allowed** | **Allowed** | **Allowed** | **Unrestricted execution.** Completely bypasses authorization checks. Intended for trusted CI runners or containers. |
+| Mode                    | Read Tools (`Read`, `Glob`, `Grep`, `Lsp`, `WebFetch`) | File Mutations (`Write`, `Edit`) | Shell Execution (`Bash`) | Description                                                                                                          |
+| :---------------------- | :----------------------------------------------------- | :------------------------------- | :----------------------- | :------------------------------------------------------------------------------------------------------------------- |
+| **`default`**           | **Allowed**                                            | Denied                           | Denied                   | **Strict read-only analysis.** Ideal for codebase exploration, code reviews, and answering architecture queries.     |
+| **`acceptEdits`**       | **Allowed**                                            | **Allowed**                      | Denied                   | **Safe autonomous coding.** Allows file creation and edits, but blocks arbitrary shell commands unless authorized.   |
+| **`plan`**              | **Allowed**                                            | _Hidden_                         | _Hidden_                 | **Reconnaissance mode.** Mutation and shell tools are completely removed from model schemas before invocation.       |
+| **`bypassPermissions`** | **Allowed**                                            | **Allowed**                      | **Allowed**              | **Unrestricted execution.** Completely bypasses authorization checks. Intended for trusted CI runners or containers. |
 
 ---
 
 ### 1. `default` Mode (Read-Only)
+
 The default mode when no flag is passed. The model can inspect your codebase using `Read`, `Glob`, `Grep`, `Lsp`, `WebFetch`, and `WebSearch`, but cannot write files or execute shell commands:
 
 ```bash
@@ -82,6 +83,7 @@ greg "Audit our API endpoints for missing authentication middleware"
 ```
 
 If the model attempts to edit a file, `greg` rejects the call:
+
 ```text
 Permission denied: Workspace mutation "writeFile(src/routes.ts)" not allowed in mode default.
 Allow with --allowed-tools 'Write(src/routes.ts)' or --permission-mode acceptEdits.
@@ -90,6 +92,7 @@ Allow with --allowed-tools 'Write(src/routes.ts)' or --permission-mode acceptEdi
 ---
 
 ### 2. `acceptEdits` Mode (File Mutations)
+
 Authorizes `greg` to create, write, and edit files while continuing to block arbitrary shell commands:
 
 ```bash
@@ -102,6 +105,7 @@ Every file edit made under `acceptEdits` is automatically snapshotted in content
 ---
 
 ### 3. `plan` Mode (Reconnaissance)
+
 In `plan` mode, `Write`, `Edit`, and `Bash` are completely filtered out of the model's available tools (`planModeToolNames`). The model cannot even attempt mutations; it can only formulate implementation plans:
 
 ```bash
@@ -112,6 +116,7 @@ greg "Formulate a step-by-step migration plan from Jest to Vitest" \
 ---
 
 ### 4. `bypassPermissions` Mode (Unrestricted)
+
 Disables all permission checks. File edits and shell commands run without restrictions:
 
 ```bash
@@ -149,15 +154,15 @@ Tool rules use PascalCase tool names followed by parentheses containing a matchi
 [ToolName]([Pattern])
 ```
 
-| Tool Name | Target Parameter Evaluated | Example Rule | Meaning |
-| :--- | :--- | :--- | :--- |
-| **`Bash`** | `command` string | `Bash(bun test *)` | Allows any `bun test` command with any arguments. |
-| **`Bash`** | `command` string | `Bash(git diff *)` | Allows read-only git diff commands. |
-| **`Write`** | `filePath` (relative to workspace) | `Write(src/services/*)` | Allows writing files strictly inside `src/services/`. |
-| **`Edit`** | `filePath` (relative to workspace) | `Edit(tests/**/*.ts)` | Allows editing TypeScript files in `tests/`. |
-| **`Read`** | `filePath` (relative to workspace) | `Read(docs/*)` | Restricts reads to `docs/`. |
-| **`WebFetch`** | `url` string | `WebFetch(https://api.github.com/*)` | Allows fetching from GitHub's API domain only. |
-| **`WebSearch`** | `query` string | `WebSearch(typescript *)` | Allows web searches starting with "typescript". |
+| Tool Name       | Target Parameter Evaluated         | Example Rule                         | Meaning                                               |
+| :-------------- | :--------------------------------- | :----------------------------------- | :---------------------------------------------------- |
+| **`Bash`**      | `command` string                   | `Bash(bun test *)`                   | Allows any `bun test` command with any arguments.     |
+| **`Bash`**      | `command` string                   | `Bash(git diff *)`                   | Allows read-only git diff commands.                   |
+| **`Write`**     | `filePath` (relative to workspace) | `Write(src/services/*)`              | Allows writing files strictly inside `src/services/`. |
+| **`Edit`**      | `filePath` (relative to workspace) | `Edit(tests/**/*.ts)`                | Allows editing TypeScript files in `tests/`.          |
+| **`Read`**      | `filePath` (relative to workspace) | `Read(docs/*)`                       | Restricts reads to `docs/`.                           |
+| **`WebFetch`**  | `url` string                       | `WebFetch(https://api.github.com/*)` | Allows fetching from GitHub's API domain only.        |
+| **`WebSearch`** | `query` string                     | `WebSearch(typescript *)`            | Allows web searches starting with "typescript".       |
 
 ### How Target Matching Operates
 
@@ -183,6 +188,7 @@ greg "Clean build artifacts and run test suite" \
 ```
 
 If the agent attempts to run `rm -rf dist`, execution is rejected:
+
 ```text
 Permission denied: Tool execution "Bash(rm -rf dist)" explicitly blocked by disallowedTools rule "Bash(rm *)".
 ```
@@ -194,6 +200,7 @@ Permission denied: Tool execution "Bash(rm -rf dist)" explicitly blocked by disa
 `greg` includes a background task manager powered by Hernex's `TaskManagerTool`. Background tasks spawn asynchronous sub-processes (such as starting a local development server or running a long test suite).
 
 To maintain strict security boundaries, **`TaskManager` is directly coupled to `Bash` authorization**:
+
 - `TaskManager` cannot be authorized independently.
 - In `default` or `acceptEdits` mode, background tasks are permitted only if `Bash` is explicitly allowed (e.g. `--allowed-tools "Bash(*)"`).
 - If `Bash` is denied, any attempt to spawn background tasks fails closed.
@@ -242,19 +249,24 @@ greg config get allowedTools
 ## Security Best Practices
 
 ### 1. Principle of Least Privilege
+
 Always start with `default` (read-only) or `acceptEdits` mode. Only authorize the specific shell commands needed for verification (e.g. `Bash(npm test)` or `Bash(cargo check)`).
 
 ### 2. Guard Sensitive Branches in Git
+
 Never allow unrestrained `git push` in shared environments. Disallow pushes to production branches:
+
 ```bash
 greg config add disallowedTools "Bash(git push * main*)"
 greg config add disallowedTools "Bash(git push * master*)"
 ```
 
 ### 3. Combine Permissions with Lifecycle Hooks
+
 For multi-layer security, combine `--disallowed-tools` with a `PreToolUse` lifecycle hook that inspects argument payloads before execution. See [Lifecycle Hooks](/hooks).
 
 ### 4. Rely on Checkpoints for Recovery
+
 If an authorized file edit introduces unwanted changes, use `greg checkpoints restore 1` to instantly revert the workspace back to its pre-mutation state.
 
 ---
@@ -263,6 +275,6 @@ If an authorized file edit introduces unwanted changes, use `greg checkpoints re
 
 Now that you understand permission evaluation and security rules:
 
-* [Common Workflows](/common-workflows): Explore real-world developer recipes with scoped permissions.
-* [Lifecycle Hooks](/hooks): Learn how to build custom pre-execution shell guardrails.
-* [How Greg Works](/how-greg-works): Inspect the complete agent execution cycle and engine architecture.
+- [Common Workflows](/common-workflows): Explore real-world developer recipes with scoped permissions.
+- [Lifecycle Hooks](/hooks): Learn how to build custom pre-execution shell guardrails.
+- [How Greg Works](/how-greg-works): Inspect the complete agent execution cycle and engine architecture.

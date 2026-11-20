@@ -24,14 +24,14 @@ New to `greg`? See the [Quickstart](/quickstart) for setting up your first provi
 
 This page covers:
 
-* [How Model Routing Works](#how-model-routing-works): The first-slash routing rule and model ID preservation.
-* [Credential & Base URL Resolution](#credential-base-url-resolution): Environment variable regex formula, provider aliases, and resolution precedence.
-* [Supported Providers Matrix](#supported-providers-matrix): 13+ provider table with required environment variables and default endpoints.
-* [Setting Your Default Model](#setting-your-default-model): Persisting global models and applying temporary CLI overrides.
-* [Reasoning Effort Configuration](#reasoning-effort-configuration): Configuring thinking budgets with `--effort`.
-* [Automatic Fallback Chains](#automatic-fallback-chains): High-availability failover across multiple models.
-* [Custom & Local Gateways](#custom--local-gateways): Connecting to Ollama, vLLM, and enterprise proxies via `compatible/`.
-* [Next Steps](#next-steps): Next guides to explore.
+- [How Model Routing Works](#how-model-routing-works): The first-slash routing rule and model ID preservation.
+- [Credential & Base URL Resolution](#credential-base-url-resolution): Environment variable regex formula, provider aliases, and resolution precedence.
+- [Supported Providers Matrix](#supported-providers-matrix): 13+ provider table with required environment variables and default endpoints.
+- [Setting Your Default Model](#setting-your-default-model): Persisting global models and applying temporary CLI overrides.
+- [Reasoning Effort Configuration](#reasoning-effort-configuration): Configuring thinking budgets with `--effort`.
+- [Automatic Fallback Chains](#automatic-fallback-chains): High-availability failover across multiple models.
+- [Custom & Local Gateways](#custom--local-gateways): Connecting to Ollama, vLLM, and enterprise proxies via `compatible/`.
+- [Next Steps](#next-steps): Next guides to explore.
 
 ---
 
@@ -43,20 +43,20 @@ This page covers:
 [provider]/[model-id]
 ```
 
-* **Before the first slash**: The provider identifier (e.g., `anthropic`, `google`, `openai`, `deepseek`, `groq`, `openrouter`).
-* **After the first slash**: The model identifier passed directly to that provider. Any subsequent slashes are preserved as part of the model name (essential for multi-tenant routers like OpenRouter).
+- **Before the first slash**: The provider identifier (e.g., `anthropic`, `google`, `openai`, `deepseek`, `groq`, `openrouter`).
+- **After the first slash**: The model identifier passed directly to that provider. Any subsequent slashes are preserved as part of the model name (essential for multi-tenant routers like OpenRouter).
 
 ### Routing Examples
 
-| Model String | Provider | Model ID Sent to Provider |
-| :--- | :--- | :--- |
-| `anthropic/claude-sonnet-4-6` | `anthropic` | `claude-sonnet-4-6` |
-| `google/gemini-3.8-flash` | `google` | `gemini-3.8-flash` |
-| `openai/gpt-5` | `openai` | `gpt-5` |
-| `deepseek/deepseek-v4-pro` | `deepseek` | `deepseek-v4-pro` |
-| `groq/llama-3.3-70b-versatile` | `groq` | `llama-3.3-70b-versatile` |
+| Model String                             | Provider     | Model ID Sent to Provider     |
+| :--------------------------------------- | :----------- | :---------------------------- |
+| `anthropic/claude-sonnet-4-6`            | `anthropic`  | `claude-sonnet-4-6`           |
+| `google/gemini-3.8-flash`                | `google`     | `gemini-3.8-flash`            |
+| `openai/gpt-5`                           | `openai`     | `gpt-5`                       |
+| `deepseek/deepseek-v4-pro`               | `deepseek`   | `deepseek-v4-pro`             |
+| `groq/llama-3.3-70b-versatile`           | `groq`       | `llama-3.3-70b-versatile`     |
 | `openrouter/anthropic/claude-sonnet-4-6` | `openrouter` | `anthropic/claude-sonnet-4-6` |
-| `compatible/qwen2.5-coder-32b` | `compatible` | `qwen2.5-coder-32b` |
+| `compatible/qwen2.5-coder-32b`           | `compatible` | `qwen2.5-coder-32b`           |
 
 ---
 
@@ -79,12 +79,12 @@ const specificBaseUrlVar = `${normalizedProvider}_BASE_URL`;
 2. Replaces all non-alphanumeric characters with underscores: `/[^A-Z0-9]/g` → `_`.
 3. Appends `_API_KEY` or `_BASE_URL`.
 
-| Provider String Prefix | Normalized Name | Generated API Key Env Var | Generated Base URL Env Var |
-| :--- | :--- | :--- | :--- |
-| `anthropic/` | `ANTHROPIC` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` |
-| `openai/` | `OPENAI` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` |
-| `nvidiaNim/` | `NVIDIANIM` | `NVIDIANIM_API_KEY` | `NVIDIANIM_BASE_URL` |
-| `custom-gateway/` | `CUSTOM_GATEWAY` | `CUSTOM_GATEWAY_API_KEY` | `CUSTOM_GATEWAY_BASE_URL` |
+| Provider String Prefix | Normalized Name  | Generated API Key Env Var | Generated Base URL Env Var |
+| :--------------------- | :--------------- | :------------------------ | :------------------------- |
+| `anthropic/`           | `ANTHROPIC`      | `ANTHROPIC_API_KEY`       | `ANTHROPIC_BASE_URL`       |
+| `openai/`              | `OPENAI`         | `OPENAI_API_KEY`          | `OPENAI_BASE_URL`          |
+| `nvidiaNim/`           | `NVIDIANIM`      | `NVIDIANIM_API_KEY`       | `NVIDIANIM_BASE_URL`       |
+| `custom-gateway/`      | `CUSTOM_GATEWAY` | `CUSTOM_GATEWAY_API_KEY`  | `CUSTOM_GATEWAY_BASE_URL`  |
 
 <Note>
 **Provider Aliases**: Certain providers feature built-in aliases in [src/settings/resolve.ts](file:///home/nolan/works/greg/src/settings/resolve.ts) that are evaluated in addition to the standard formula:
@@ -99,8 +99,8 @@ const specificBaseUrlVar = `${normalizedProvider}_BASE_URL`;
 1. **CLI Flag Overrides**: `--api-key <key>` explicitly overrides all environment settings for a single command.
 2. **Provider-Specific Variables**: Derived via the formula above (e.g. `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `DEEPSEEK_API_KEY`).
 3. **Provider Aliases**:
-   * Google: Checks `GEMINI_API_KEY` first, then falls back to `GOOGLE_API_KEY`.
-   * NVIDIA: Checks `NVIDIA_API_KEY` first, then falls back to `NVIDIA_NIM_API_KEY`.
+   - Google: Checks `GEMINI_API_KEY` first, then falls back to `GOOGLE_API_KEY`.
+   - NVIDIA: Checks `NVIDIA_API_KEY` first, then falls back to `NVIDIA_NIM_API_KEY`.
 4. **Generic Fallback**: If no provider-specific variable is found, `greg` checks the generic `API_KEY` environment variable.
 
 ### Base URL Precedence & Environment Overrides
@@ -109,19 +109,19 @@ Just like API keys, **every provider's base URL is fully configurable via enviro
 
 1. **CLI Flag Override**: `--base-url <url>` overrides the endpoint for a single run.
 2. **Provider-Specific Variables**: Derived via the formula above (`${NORMALIZED_PROVIDER}_BASE_URL`):
-   * `ANTHROPIC_BASE_URL`
-   * `OPENAI_BASE_URL`
-   * `GOOGLE_BASE_URL`
-   * `DEEPSEEK_BASE_URL`
-   * `GROQ_BASE_URL`
-   * `OPENROUTER_BASE_URL`
-   * `XAI_BASE_URL`
-   * `MISTRAL_BASE_URL`
-   * `COHERE_BASE_URL`
-   * `TOGETHERAI_BASE_URL`
-   * `ALIBABA_BASE_URL`
-   * `NVIDIANIM_BASE_URL`
-   * `COMPATIBLE_BASE_URL`
+   - `ANTHROPIC_BASE_URL`
+   - `OPENAI_BASE_URL`
+   - `GOOGLE_BASE_URL`
+   - `DEEPSEEK_BASE_URL`
+   - `GROQ_BASE_URL`
+   - `OPENROUTER_BASE_URL`
+   - `XAI_BASE_URL`
+   - `MISTRAL_BASE_URL`
+   - `COHERE_BASE_URL`
+   - `TOGETHERAI_BASE_URL`
+   - `ALIBABA_BASE_URL`
+   - `NVIDIANIM_BASE_URL`
+   - `COMPATIBLE_BASE_URL`
 3. **Generic Fallback**: If no provider-specific variable is set, `greg` checks the global `BASE_URL` environment variable.
 4. **Built-in Default**: If unset, Hernex uses the provider's official default endpoint.
 
@@ -147,22 +147,22 @@ greg "Task" -m anthropic/claude-sonnet-4-6
 
 Below is the complete matrix of built-in providers bundled with `greg` and Hernex:
 
-| Provider | Prefix | Required API Key | Base URL Override Env | Default Base URL |
-| :--- | :--- | :--- | :--- | :--- |
-| **Anthropic** | `anthropic/` | `ANTHROPIC_API_KEY` | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com/v1` |
-| **Google Gemini** | `google/` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `GOOGLE_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta` |
-| **OpenAI** | `openai/` | `OPENAI_API_KEY` | `OPENAI_BASE_URL` | `https://api.openai.com/v1` |
-| **DeepSeek** | `deepseek/` | `DEEPSEEK_API_KEY` | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com/v1` |
-| **Groq** | `groq/` | `GROQ_API_KEY` | `GROQ_BASE_URL` | `https://api.groq.com/openai/v1` |
-| **xAI** | `xai/` | `XAI_API_KEY` | `XAI_BASE_URL` | `https://api.x.ai/v1` |
-| **OpenRouter** | `openrouter/` | `OPENROUTER_API_KEY` | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` |
-| **Mistral AI** | `mistral/` | `MISTRAL_API_KEY` | `MISTRAL_BASE_URL` | `https://api.mistral.ai/v1` |
-| **Together AI** | `togetherai/` | `TOGETHERAI_API_KEY` | `TOGETHERAI_BASE_URL` | `https://api.together.xyz/v1` |
-| **Cohere** | `cohere/` | `COHERE_API_KEY` | `COHERE_BASE_URL` | `https://api.cohere.com/v2` |
-| **Alibaba DashScope** | `alibaba/` | `ALIBABA_API_KEY` | `ALIBABA_BASE_URL` | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` |
-| **NVIDIA NIM** | `nvidiaNim/` | `NVIDIA_API_KEY` or `NVIDIA_NIM_API_KEY` | `NVIDIANIM_BASE_URL` | `https://integrate.api.nvidia.com/v1` |
-| **Vercel AI Gateway** | `vercelgateway/` | `VERCEL_API_KEY` | `VERCELGATEWAY_BASE_URL` | `https://ai.gateway.vercel.dev/v1` |
-| **Compatible / Local** | `compatible/` | Any string (or `dummy`) | `COMPATIBLE_BASE_URL` | `http://localhost:8080/v1` |
+| Provider               | Prefix           | Required API Key                         | Base URL Override Env    | Default Base URL                                         |
+| :--------------------- | :--------------- | :--------------------------------------- | :----------------------- | :------------------------------------------------------- |
+| **Anthropic**          | `anthropic/`     | `ANTHROPIC_API_KEY`                      | `ANTHROPIC_BASE_URL`     | `https://api.anthropic.com/v1`                           |
+| **Google Gemini**      | `google/`        | `GEMINI_API_KEY` or `GOOGLE_API_KEY`     | `GOOGLE_BASE_URL`        | `https://generativelanguage.googleapis.com/v1beta`       |
+| **OpenAI**             | `openai/`        | `OPENAI_API_KEY`                         | `OPENAI_BASE_URL`        | `https://api.openai.com/v1`                              |
+| **DeepSeek**           | `deepseek/`      | `DEEPSEEK_API_KEY`                       | `DEEPSEEK_BASE_URL`      | `https://api.deepseek.com/v1`                            |
+| **Groq**               | `groq/`          | `GROQ_API_KEY`                           | `GROQ_BASE_URL`          | `https://api.groq.com/openai/v1`                         |
+| **xAI**                | `xai/`           | `XAI_API_KEY`                            | `XAI_BASE_URL`           | `https://api.x.ai/v1`                                    |
+| **OpenRouter**         | `openrouter/`    | `OPENROUTER_API_KEY`                     | `OPENROUTER_BASE_URL`    | `https://openrouter.ai/api/v1`                           |
+| **Mistral AI**         | `mistral/`       | `MISTRAL_API_KEY`                        | `MISTRAL_BASE_URL`       | `https://api.mistral.ai/v1`                              |
+| **Together AI**        | `togetherai/`    | `TOGETHERAI_API_KEY`                     | `TOGETHERAI_BASE_URL`    | `https://api.together.xyz/v1`                            |
+| **Cohere**             | `cohere/`        | `COHERE_API_KEY`                         | `COHERE_BASE_URL`        | `https://api.cohere.com/v2`                              |
+| **Alibaba DashScope**  | `alibaba/`       | `ALIBABA_API_KEY`                        | `ALIBABA_BASE_URL`       | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` |
+| **NVIDIA NIM**         | `nvidiaNim/`     | `NVIDIA_API_KEY` or `NVIDIA_NIM_API_KEY` | `NVIDIANIM_BASE_URL`     | `https://integrate.api.nvidia.com/v1`                    |
+| **Vercel AI Gateway**  | `vercelgateway/` | `VERCEL_API_KEY`                         | `VERCELGATEWAY_BASE_URL` | `https://ai.gateway.vercel.dev/v1`                       |
+| **Compatible / Local** | `compatible/`    | Any string (or `dummy`)                  | `COMPATIBLE_BASE_URL`    | `http://localhost:8080/v1`                               |
 
 ---
 
@@ -196,13 +196,14 @@ greg "Solve this complex architectural race condition" --effort high
 ```
 
 Supported effort values:
-* `none`
-* `minimal`
-* `low`
-* `medium`
-* `high`
-* `xhigh`
-* `max`
+
+- `none`
+- `minimal`
+- `low`
+- `medium`
+- `high`
+- `xhigh`
+- `max`
 
 You can also set a default reasoning effort level in your settings:
 
@@ -259,6 +260,6 @@ greg "Review this PR" \
 
 Now that you have configured your model providers and endpoints:
 
-* [Common Workflows](/common-workflows): Explore real-world developer recipes and piping patterns.
-* [Managing Threads](/threads): Master session persistence, branching, and checkpoint rollback workflows.
-* [Quickstart](/quickstart): Return to the quickstart to practice everyday agent commands.
+- [Common Workflows](/common-workflows): Explore real-world developer recipes and piping patterns.
+- [Managing Threads](/threads): Master session persistence, branching, and checkpoint rollback workflows.
+- [Quickstart](/quickstart): Return to the quickstart to practice everyday agent commands.

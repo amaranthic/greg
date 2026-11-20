@@ -11,12 +11,12 @@ For deep dives on session persistence and time-travel rollback mechanics, see [M
 
 This page covers:
 
-* [Prompt Recipes](#prompt-recipes): Step-by-step patterns for exploring unfamiliar code, debugging errors, refactoring, writing test suites, and handling PR reviews.
-* [Plan Before Editing](#plan-before-editing): Reconnaissance mode to inspect proposed architectural changes before touching disk files.
-* [Resume Conversations & Iterative Sittings](#resume-conversations-iterative-sittings): Continuing tasks across multiple commands with `-c` and `-r`.
-* [Snapshot Rollbacks with Checkpoints](#snapshot-rollbacks-with-checkpoints): Preflighting diffs and restoring previous workspace states.
-* [Run Parallel Sessions with Git Worktrees](#run-parallel-sessions-with-git-worktrees): Running concurrent agent turns without branch collisions.
-* [Unix Pipelines & Shell Automation](#unix-pipelines-shell-automation): Piping `stdin`, filtering structured JSON, and handling POSIX exit codes in shell scripts.
+- [Prompt Recipes](#prompt-recipes): Step-by-step patterns for exploring unfamiliar code, debugging errors, refactoring, writing test suites, and handling PR reviews.
+- [Plan Before Editing](#plan-before-editing): Reconnaissance mode to inspect proposed architectural changes before touching disk files.
+- [Resume Conversations & Iterative Sittings](#resume-conversations-iterative-sittings): Continuing tasks across multiple commands with `-c` and `-r`.
+- [Snapshot Rollbacks with Checkpoints](#snapshot-rollbacks-with-checkpoints): Preflighting diffs and restoring previous workspace states.
+- [Run Parallel Sessions with Git Worktrees](#run-parallel-sessions-with-git-worktrees): Running concurrent agent turns without branch collisions.
+- [Unix Pipelines & Shell Automation](#unix-pipelines-shell-automation): Piping `stdin`, filtering structured JSON, and handling POSIX exit codes in shell scripts.
 
 ---
 
@@ -90,6 +90,7 @@ To run a prompt without language server overhead or to disable LSP for a single 
 ```bash
 greg "Give me a high-level overview of src/utils/format.ts" --disable-lsp
 ```
+
 </Tip>
 
 ---
@@ -242,6 +243,7 @@ git diff origin/main | greg "Review this diff for security vulnerabilities, secr
 For complex tasks involving architectural changes or high-risk modifications, use **Plan Mode** (`--permission-mode plan`).
 
 In plan mode, `greg` runs in reconnaissance:
+
 - Write and execute tools (`Write`, `Edit`, `Bash`) are completely hidden from the model.
 - Only read-only tools (`Read`, `Glob`, `Grep`, `Lsp`, `WebFetch`, `WebSearch`) are active.
 - `greg` inspects files, maps dependencies, and presents a detailed implementation blueprint without touching a single file on disk.
@@ -254,6 +256,7 @@ greg "We need to migrate our database client from Prisma to Kysely. Formulate a 
 ```
 
 `greg` will explore your repository and stream a structured plan to `stdout`:
+
 ```markdown
 ### Migration Blueprint: Prisma to Kysely
 
@@ -351,6 +354,7 @@ greg checkpoints list
 ```
 
 Output:
+
 ```text
 Available checkpoints for thread "7b2c6114-d89e-4906-9f99-0d3b81d92875":
   #1 [2026-11-19T10:14:22Z] (id: a1b2c3d4) Files modified: 2, created: 1
@@ -374,17 +378,13 @@ greg checkpoints restore 1 --dry-run
 ```
 
 Output:
+
 ```json
 {
   "threadId": "7b2c6114-d89e-4906-9f99-0d3b81d92875",
   "checkpointId": "a1b2c3d4",
-  "filesToRestore": [
-    "src/billing/types.ts",
-    "src/billing/stripe.ts"
-  ],
-  "filesToDelete": [
-    "src/billing/stripe.test.ts"
-  ],
+  "filesToRestore": ["src/billing/types.ts", "src/billing/stripe.ts"],
+  "filesToDelete": ["src/billing/stripe.test.ts"],
   "conflicts": []
 }
 ```
@@ -493,12 +493,12 @@ For real-time streaming event pipelines, use `--output-format stream-json` to re
 
 `greg` returns standard POSIX exit codes so your automation scripts can react deterministically:
 
-| Exit Code | Constant | Meaning |
-| :--- | :--- | :--- |
-| `0` | `success` | Agent execution completed successfully. |
-| `1` | `runtimeError` | Runtime error, uncaught exception, or model communication failure. |
-| `2` | `permissionDenied` | Operation aborted because a tool was denied under fail-closed security. |
-| `4` | `timeout` | Wall-clock execution exceeded the configured `--timeout` limit. |
+| Exit Code | Constant           | Meaning                                                                 |
+| :-------- | :----------------- | :---------------------------------------------------------------------- |
+| `0`       | `success`          | Agent execution completed successfully.                                 |
+| `1`       | `runtimeError`     | Runtime error, uncaught exception, or model communication failure.      |
+| `2`       | `permissionDenied` | Operation aborted because a tool was denied under fail-closed security. |
+| `4`       | `timeout`          | Wall-clock execution exceeded the configured `--timeout` limit.         |
 
 Here is an example CI workflow script that runs `greg` to verify type safety and automatically exits on failure:
 

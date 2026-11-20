@@ -13,12 +13,12 @@ Ready to dive straight in? Follow the [Quickstart](/quickstart) to run your firs
 
 This page covers:
 
-* [The Print Agent Philosophy](#the-print-agent-philosophy): Clean stream separation, composability with Unix pipes, and scriptable automation.
-* [Core Capabilities](#core-capabilities): Codebase mapping, atomic file edits, test verification, checkpoints, and multi-turn threads.
-* [Quick Setup](#quick-setup): Installing the standalone binary and setting your first frontier provider.
-* [Everyday Usage Patterns](#everyday-usage-patterns): Exploring, debugging, refactoring, and piping in action.
-* [Architecture at a Glance](#architecture-at-a-glance): How the agent engine, policy guardrails, and checkpoint stores interact.
-* [Next Steps](#next-steps): Guided links to deeper documentation.
+- [The Print Agent Philosophy](#the-print-agent-philosophy): Clean stream separation, composability with Unix pipes, and scriptable automation.
+- [Core Capabilities](#core-capabilities): Codebase mapping, atomic file edits, test verification, checkpoints, and multi-turn threads.
+- [Quick Setup](#quick-setup): Installing the standalone binary and setting your first frontier provider.
+- [Everyday Usage Patterns](#everyday-usage-patterns): Exploring, debugging, refactoring, and piping in action.
+- [Architecture at a Glance](#architecture-at-a-glance): How the agent engine, policy guardrails, and checkpoint stores interact.
+- [Next Steps](#next-steps): Guided links to deeper documentation.
 
 ---
 
@@ -48,11 +48,11 @@ Most developer agents wrap models in heavy, stateful interactive UIs that take o
 
 `greg` pairs frontier intelligence with local filesystem and execution tools:
 
-* **Autonomous Codebase Exploration**: Employs `Glob`, `Grep`, `Read`, and native `Lsp` (Language Server Protocol) to navigate large repositories, trace definitions, and discover architectural patterns without loading thousands of irrelevant files into context.
-* **Deterministic Permission Guardrails**: Runs by default in read-only mode. File edits require `--permission-mode acceptEdits`, while arbitrary shell commands can be restricted to strict wildcard patterns (e.g. `--allowed-tools "Bash(bun test *)"`).
-* **Content-Addressed Delta Checkpoints**: Every file modification is automatically snapshotted before changes touch disk using Hernex's `FileCheckpointStore`. You can preflight unified diffs with `greg checkpoints diff` and roll back mistakes instantly with `greg checkpoints restore`.
-* **Persistent Multi-Turn Threads**: Conversation memory is persisted per workspace. Continue tasks seamlessly across sittings with `-c`, resume by ID with `-r`, or time-travel branch with `--resume-session-at <index>`.
-* **Frontier Model Agnostic**: Routes across Anthropic Claude, Google Gemini, OpenAI GPT-5, DeepSeek, Groq, OpenRouter, and local OpenAI-compatible endpoints using simple `provider/model` identifiers.
+- **Autonomous Codebase Exploration**: Employs `Glob`, `Grep`, `Read`, and native `Lsp` (Language Server Protocol) to navigate large repositories, trace definitions, and discover architectural patterns without loading thousands of irrelevant files into context.
+- **Deterministic Permission Guardrails**: Runs by default in read-only mode. File edits require `--permission-mode acceptEdits`, while arbitrary shell commands can be restricted to strict wildcard patterns (e.g. `--allowed-tools "Bash(bun test *)"`).
+- **Content-Addressed Delta Checkpoints**: Every file modification is automatically snapshotted before changes touch disk using Hernex's `FileCheckpointStore`. You can preflight unified diffs with `greg checkpoints diff` and roll back mistakes instantly with `greg checkpoints restore`.
+- **Persistent Multi-Turn Threads**: Conversation memory is persisted per workspace. Continue tasks seamlessly across sittings with `-c`, resume by ID with `-r`, or time-travel branch with `--resume-session-at <index>`.
+- **Frontier Model Agnostic**: Routes across Anthropic Claude, Google Gemini, OpenAI GPT-5, DeepSeek, Groq, OpenRouter, and local OpenAI-compatible endpoints using simple `provider/model` identifiers.
 
 ---
 
@@ -178,8 +178,8 @@ greg checkpoints restore 1
 
 Explore the full documentation suite to master `greg`:
 
-* [Quickstart](/quickstart): Step-by-step tutorial taking you through your first complete editing task.
-* [Installation Guide](/installation): Detailed setup instructions for macOS, Linux, WSL, Android Termux, manual downloads, and source builds.
-* [Managing Threads](/threads): Master session persistence, branching, transcript exports, and checkpoint rollback workflows.
-* [Managing Providers](/model-providers): Configure API credentials, base URLs, reasoning effort budgets, and automatic fallback chains across 13+ providers.
-* [Common Workflows](/common-workflows): Practical recipes for exploration, refactoring, test generation, and CI automation.
+- [Quickstart](/quickstart): Step-by-step tutorial taking you through your first complete editing task.
+- [Installation Guide](/installation): Detailed setup instructions for macOS, Linux, WSL, Android Termux, manual downloads, and source builds.
+- [Managing Threads](/threads): Master session persistence, branching, transcript exports, and checkpoint rollback workflows.
+- [Managing Providers](/model-providers): Configure API credentials, base URLs, reasoning effort budgets, and automatic fallback chains across 13+ providers.
+- [Common Workflows](/common-workflows): Practical recipes for exploration, refactoring, test generation, and CI automation.

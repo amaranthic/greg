@@ -13,15 +13,15 @@ Before running `greg` in automated pipelines, review [Permissions & Safety](/per
 
 This page covers:
 
-* [Headless Execution Principles](#headless-execution-principles): Stream isolation, non-interactive mode, and fail-closed security.
-* [POSIX Process Exit Codes](#posix-process-exit-codes): Scripting against exit codes (`0`, `1`, `2`, `4`) in CI automation.
-* [Structured JSON Outputs](#structured-json-outputs): Parsing results with `jq` via `--output-format json` and `--output-format stream-json`.
-* [Ephemeral CI Execution](#ephemeral-ci-execution): Preventing disk bloat on ephemeral runners.
-* [Enforcing Output Schemas](#enforcing-output-schemas): Guaranteeing valid JSON data structures.
-* [GitHub Actions Workflows](#github-actions-workflows): Production recipes for PR review, automated bug fixing, and security audits.
-* [Pre-Commit Hooks](#pre-commit-hooks): Auditing staged Git diffs locally before commits.
-* [Docker Containerization](#docker-containerization): Packaging `greg` in minimal containerized runners.
-* [Next Steps](#next-steps): Guided links to deeper topics.
+- [Headless Execution Principles](#headless-execution-principles): Stream isolation, non-interactive mode, and fail-closed security.
+- [POSIX Process Exit Codes](#posix-process-exit-codes): Scripting against exit codes (`0`, `1`, `2`, `4`) in CI automation.
+- [Structured JSON Outputs](#structured-json-outputs): Parsing results with `jq` via `--output-format json` and `--output-format stream-json`.
+- [Ephemeral CI Execution](#ephemeral-ci-execution): Preventing disk bloat on ephemeral runners.
+- [Enforcing Output Schemas](#enforcing-output-schemas): Guaranteeing valid JSON data structures.
+- [GitHub Actions Workflows](#github-actions-workflows): Production recipes for PR review, automated bug fixing, and security audits.
+- [Pre-Commit Hooks](#pre-commit-hooks): Auditing staged Git diffs locally before commits.
+- [Docker Containerization](#docker-containerization): Packaging `greg` in minimal containerized runners.
+- [Next Steps](#next-steps): Guided links to deeper topics.
 
 ---
 
@@ -58,12 +58,12 @@ flowchart LR
 
 `greg` returns deterministic exit codes so automation scripts can make branching decisions:
 
-| Exit Code | Constant | Meaning | Recommended CI Action |
-| :---: | :--- | :--- | :--- |
-| **`0`** | `success` | Agent execution completed successfully. | Proceed to subsequent pipeline stages. |
-| **`1`** | `runtimeError` | Runtime error, model failure, or uncaught exception. | Fail the CI job and log diagnostics. |
-| **`2`** | `permissionDenied` | Operation aborted because an unauthorized tool was requested. | Fail the CI job or notify security team. |
-| **`4`** | `timeout` | Wall-clock execution exceeded `--timeout` limit. | Retry with higher timeout or reasoning budget. |
+| Exit Code | Constant           | Meaning                                                       | Recommended CI Action                          |
+| :-------: | :----------------- | :------------------------------------------------------------ | :--------------------------------------------- |
+|  **`0`**  | `success`          | Agent execution completed successfully.                       | Proceed to subsequent pipeline stages.         |
+|  **`1`**  | `runtimeError`     | Runtime error, model failure, or uncaught exception.          | Fail the CI job and log diagnostics.           |
+|  **`2`**  | `permissionDenied` | Operation aborted because an unauthorized tool was requested. | Fail the CI job or notify security team.       |
+|  **`4`**  | `timeout`          | Wall-clock execution exceeded `--timeout` limit.              | Retry with higher timeout or reasoning budget. |
 
 ### Robust Shell Script Handling Recipe
 
@@ -105,10 +105,11 @@ greg "Analyze package.json and list all production dependencies requiring securi
 ```
 
 The emitted JSON payload includes:
-* `result`: The final model output text or parsed object.
-* `sessionId`: The unique thread identifier.
-* `turnMetrics`: Turn count, duration in milliseconds, and finish reason.
-* `totalUsage`: Input, output, reasoning, and total token counts.
+
+- `result`: The final model output text or parsed object.
+- `sessionId`: The unique thread identifier.
+- `turnMetrics`: Turn count, duration in milliseconds, and finish reason.
+- `totalUsage`: Input, output, reasoning, and total token counts.
 
 You can inspect findings directly with `jq`:
 
@@ -134,9 +135,10 @@ greg "Review diff" --no-session-persistence
 ```
 
 When active:
-* No session JSON files are created on disk.
-* Pre-mutation snapshots are skipped.
-* Disk I/O is reduced to zero.
+
+- No session JSON files are created on disk.
+- Pre-mutation snapshots are skipped.
+- Disk I/O is reduced to zero.
 
 ---
 
@@ -365,7 +367,7 @@ docker run --rm -v $(pwd):/workspace \
 
 Now that you know how to automate `greg` in continuous integration:
 
-* [Permissions & Safety](/permissions): Harden tool authorization with fail-closed rules.
-* [Lifecycle Hooks](/hooks): Build event-driven pre-commit and post-execution guardrails.
-* [Common Workflows](/common-workflows): Explore everyday terminal developer recipes.
-* [Managing Providers](/model-providers): Configure fallback chains and custom proxy gateways for CI.
+- [Permissions & Safety](/permissions): Harden tool authorization with fail-closed rules.
+- [Lifecycle Hooks](/hooks): Build event-driven pre-commit and post-execution guardrails.
+- [Common Workflows](/common-workflows): Explore everyday terminal developer recipes.
+- [Managing Providers](/model-providers): Configure fallback chains and custom proxy gateways for CI.

@@ -587,9 +587,7 @@ describe("Prompt Hook Model Resolution & Decision Parsing", () => {
 
 describe("Start Hook — HookInput payload & updatedPrompt output", () => {
   /** Minimal valid Start-event HookInput. */
-  const makeStartInput = (
-    overrides: Partial<HookInput> = {},
-  ): HookInput => ({
+  const makeStartInput = (overrides: Partial<HookInput> = {}): HookInput => ({
     sessionId: "sess-start-001",
     hookEvent: "Start",
     projectDir: process.cwd(),

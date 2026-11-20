@@ -31,15 +31,7 @@
     }
   },
   "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "aistudio",
-      "grok",
-      "perplexity"
-    ],
+    "options": ["copy", "view", "chatgpt", "claude", "aistudio", "grok", "perplexity"],
     "display": "header"
   },
   "navbar": {
@@ -68,28 +60,15 @@
     "groups": [
       {
         "group": "Getting Started",
-        "pages": [
-          "overview",
-          "quickstart",
-          "installation"
-        ]
+        "pages": ["overview", "quickstart", "installation"]
       },
       {
         "group": "Core Concepts",
-        "pages": [
-          "how-greg-works",
-          "permissions"
-        ]
+        "pages": ["how-greg-works", "permissions"]
       },
       {
         "group": "Using Greg",
-        "pages": [
-          "threads",
-          "model-providers",
-          "common-workflows",
-          "hooks",
-          "ci-cd"
-        ]
+        "pages": ["threads", "model-providers", "common-workflows", "hooks", "ci-cd"]
       }
     ]
   }

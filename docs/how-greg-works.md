@@ -13,15 +13,15 @@ Whether you are a software developer using `greg` for everyday refactoring or a 
 
 This page covers:
 
-* [High-Level System Architecture](#high-level-system-architecture): The 4-tier stack spanning CLI parsing, the Hernex engine, storage layers, and tools.
-* [The Print Agent I/O Contract](#the-print-agent-io-contract): Stream separation, Unix piping, and clean `stdout` composability.
-* [The Agent Execution Lifecycle](#the-agent-execution-lifecycle): Sequence diagram of turns, hooks, model invocations, and tool dispatches.
-* [Deterministic Permission Engine](#deterministic-permission-engine): Fail-closed security, declarative permission modes, and wildcard policy matching.
-* [Content-Addressed Delta Checkpoints](#content-addressed-delta-checkpoints): Pre-mutation SHA-256 snapshots and conflict-free rollbacks.
-* [Persistent Workspace Threads](#persistent-workspace-threads): On-disk transcript persistence, workspace isolation, and turn time travel.
-* [Native Language Server Protocol (LSP)](#native-language-server-protocol-lsp): AST symbol navigation and compiler-grade type analysis.
-* [POSIX Process Exit Codes](#posix-process-exit-codes): Deterministic exit code contracts for shell and CI scripting.
-* [Next Steps](#next-steps): Guided links to deeper guides.
+- [High-Level System Architecture](#high-level-system-architecture): The 4-tier stack spanning CLI parsing, the Hernex engine, storage layers, and tools.
+- [The Print Agent I/O Contract](#the-print-agent-io-contract): Stream separation, Unix piping, and clean `stdout` composability.
+- [The Agent Execution Lifecycle](#the-agent-execution-lifecycle): Sequence diagram of turns, hooks, model invocations, and tool dispatches.
+- [Deterministic Permission Engine](#deterministic-permission-engine): Fail-closed security, declarative permission modes, and wildcard policy matching.
+- [Content-Addressed Delta Checkpoints](#content-addressed-delta-checkpoints): Pre-mutation SHA-256 snapshots and conflict-free rollbacks.
+- [Persistent Workspace Threads](#persistent-workspace-threads): On-disk transcript persistence, workspace isolation, and turn time travel.
+- [Native Language Server Protocol (LSP)](#native-language-server-protocol-lsp): AST symbol navigation and compiler-grade type analysis.
+- [POSIX Process Exit Codes](#posix-process-exit-codes): Deterministic exit code contracts for shell and CI scripting.
+- [Next Steps](#next-steps): Guided links to deeper guides.
 
 ---
 
@@ -60,12 +60,12 @@ flowchart TD
 
 ### The 4 Architectural Tiers
 
-| Tier | Component | Responsibility |
-| :--- | :--- | :--- |
-| **1. CLI & Interface** | `src/cli/` & `src/output/` | Argument parsing, reading piped `stdin`, stream multiplexing (`stdout` vs `stderr`), and ANSI formatting. |
-| **2. Engine Runtime** | `@amaranthic/hernex` | Multi-turn reasoning loops, streaming token decoders, model fallbacks, and lifecycle hook orchestration. |
+| Tier                    | Component                  | Responsibility                                                                                                    |
+| :---------------------- | :------------------------- | :---------------------------------------------------------------------------------------------------------------- |
+| **1. CLI & Interface**  | `src/cli/` & `src/output/` | Argument parsing, reading piped `stdin`, stream multiplexing (`stdout` vs `stderr`), and ANSI formatting.         |
+| **2. Engine Runtime**   | `@amaranthic/hernex`       | Multi-turn reasoning loops, streaming token decoders, model fallbacks, and lifecycle hook orchestration.          |
 | **3. Policy & Storage** | `src/policy/` & `~/.greg/` | Deterministic fail-closed authorization, wildcard pattern compilation, delta checkpoints, and thread persistence. |
-| **4. Tool Catalogue** | `ToolRegistry` | Real-world capabilities: filesystem mutations, shell execution, AST compiler queries via LSP, and web fetching. |
+| **4. Tool Catalogue**   | `ToolRegistry`             | Real-world capabilities: filesystem mutations, shell execution, AST compiler queries via LSP, and web fetching.   |
 
 ---
 
@@ -85,12 +85,15 @@ The central design philosophy of `greg` is strict **stream isolation**. In stand
 ```
 
 ### 1. Standard Input (`stdin`)
+
 When data is piped into `greg` (e.g. `cat error.log | greg "Diagnose this"`), the CLI automatically buffers standard input up to 512 KiB (`maxStdinBufferBytes`), injects it into the initial prompt context, and executes without waiting for keyboard interaction.
 
 ### 2. Standard Output (`stdout`)
+
 Standard output is reserved exclusively for the model's final response text, generated source code, or structured JSON (when `--output-format json` or `--output-format stream-json` is requested). Output redirection (`greg "..." > file.ts`) produces completely clean files without terminal control characters.
 
 ### 3. Standard Error (`stderr`)
+
 All runtime telemetry—turn counters, token metrics, tool call notices (e.g. `Read(src/index.ts)`), LSP status, and permission denials—are routed strictly to standard error.
 
 ---
@@ -183,12 +186,12 @@ stateDiagram-v2
 
 ### The 4 Permission Modes
 
-| Permission Mode | Read Tools (`Read`, `Glob`, `Grep`, `Lsp`) | File Mutations (`Write`, `Edit`) | Shell Execution (`Bash`) | Primary Use Case |
-| :--- | :--- | :--- | :--- | :--- |
-| `default` | Allowed | Denied | Denied (unless explicitly allowed) | Safe codebase exploration and analysis. |
-| `acceptEdits` | Allowed | Allowed | Denied (unless explicitly allowed) | Autonomous code writing, bug fixes, and refactoring. |
-| `plan` | Allowed | Hidden | Hidden | Architectural reconnaissance before disk changes. |
-| `bypassPermissions` | Allowed | Allowed | Allowed | Trusted CI/CD runners or isolated containers. |
+| Permission Mode     | Read Tools (`Read`, `Glob`, `Grep`, `Lsp`) | File Mutations (`Write`, `Edit`) | Shell Execution (`Bash`)           | Primary Use Case                                     |
+| :------------------ | :----------------------------------------- | :------------------------------- | :--------------------------------- | :--------------------------------------------------- |
+| `default`           | Allowed                                    | Denied                           | Denied (unless explicitly allowed) | Safe codebase exploration and analysis.              |
+| `acceptEdits`       | Allowed                                    | Allowed                          | Denied (unless explicitly allowed) | Autonomous code writing, bug fixes, and refactoring. |
+| `plan`              | Allowed                                    | Hidden                           | Hidden                             | Architectural reconnaissance before disk changes.    |
+| `bypassPermissions` | Allowed                                    | Allowed                          | Allowed                            | Trusted CI/CD runners or isolated containers.        |
 
 ### Wildcard Scoped Allow Rules
 
@@ -234,7 +237,7 @@ flowchart LR
 
 ### Checkpoint Guarantees
 
-1. **Pre-Mutation Atomicity**: Checkpoints record file states *before* mutations occur. If a tool writes 5 files and crashes on the 6th, the pre-mutation state of all 6 files is preserved.
+1. **Pre-Mutation Atomicity**: Checkpoints record file states _before_ mutations occur. If a tool writes 5 files and crashes on the 6th, the pre-mutation state of all 6 files is preserved.
 2. **Content-Addressed Blob Deduplication**: Rather than creating duplicate copies of entire repositories, Hernex stores unique file contents in a global content-addressed store at `~/.greg/blobs/sha256/<hash>`. Multiple checkpoints referencing the same file content share identical blob entries.
 3. **Thread-Scoped Manifests**: Each thread maintains its own manifest at `~/.greg/threads/<id>/checkpoints/manifest.json` using a version 2 envelope (`{ version: 2, checkpoints: [...] }`), tracking sequence numbers, UUIDs, labels, turn indices, and SHA-256 pre/post state hashes.
 4. **External Conflict Detection**: When restoring with `greg checkpoints restore <id>`, `greg` compares current disk hashes against post-mutation states. If you modified files externally, restoration halts to prevent accidental overwrites unless `--force` is passed.
@@ -282,8 +285,8 @@ Turn 3: "Add unit tests in tests/user.test.ts"     [Checkpoint #3 Recorded]
          "Let's switch from Zod to Valibot instead" (Discards Turn 3 context)
 ```
 
-* **Continuing Tasks (`-c`)**: Reads the most recently updated thread for the current directory and appends the new instruction.
-* **1-Based Turn Indexing (`--resume-session-at <index>`)**: Truncates the active conversation to the exact turn count specified, allowing you to branch or explore alternate architectures without polluting model context.
+- **Continuing Tasks (`-c`)**: Reads the most recently updated thread for the current directory and appends the new instruction.
+- **1-Based Turn Indexing (`--resume-session-at <index>`)**: Truncates the active conversation to the exact turn count specified, allowing you to branch or explore alternate architectures without polluting model context.
 
 ---
 
@@ -303,31 +306,31 @@ When enabled, `greg` automatically checks your registered servers or falls back 
 
 ### Curated Default Server Catalog
 
-| Language | Server Identifier | Command & Args | Handled Extensions |
-| :--- | :--- | :--- | :--- |
-| **TypeScript / JS** | `typescript` | `typescript-language-server --stdio` | `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs` |
-| **Python** | `python` | `pyright-langserver --stdio` | `.py`, `.pyi` |
-| **Go** | `go` | `gopls` | `.go` |
-| **Rust** | `rust` | `rust-analyzer` | `.rs` |
-| **CSS** | `css` | `vscode-css-language-server --stdio` | `.css`, `.scss`, `.less` |
-| **HTML** | `html` | `vscode-html-language-server --stdio` | `.html`, `.htm` |
-| **JSON** | `json` | `vscode-json-language-server --stdio` | `.json`, `.jsonc` |
+| Language            | Server Identifier | Command & Args                        | Handled Extensions                           |
+| :------------------ | :---------------- | :------------------------------------ | :------------------------------------------- |
+| **TypeScript / JS** | `typescript`      | `typescript-language-server --stdio`  | `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs` |
+| **Python**          | `python`          | `pyright-langserver --stdio`          | `.py`, `.pyi`                                |
+| **Go**              | `go`              | `gopls`                               | `.go`                                        |
+| **Rust**            | `rust`            | `rust-analyzer`                       | `.rs`                                        |
+| **CSS**             | `css`             | `vscode-css-language-server --stdio`  | `.css`, `.scss`, `.less`                     |
+| **HTML**            | `html`            | `vscode-html-language-server --stdio` | `.html`, `.htm`                              |
+| **JSON**            | `json`            | `vscode-json-language-server --stdio` | `.json`, `.jsonc`                            |
 
 ### Supported LSP Operations
 
 Hernex exposes compiler-grade operations conforming to `lspInputSchema`:
 
-| Operation | Parameters | Description |
-| :--- | :--- | :--- |
-| `goToDefinition` | `filePath`, `line`, `character` | Resolves target declaration or interface definition coordinates. |
-| `goToImplementation` | `filePath`, `line`, `character` | Finds concrete class or interface implementations. |
-| `findReferences` | `filePath`, `line`, `character` | Discovers all usages of a symbol across the workspace. |
-| `hover` | `filePath`, `line`, `character` | Retrieves type signature, documentation, and hover cards. |
-| `documentSymbol` | `filePath` | Lists all classes, methods, and functions in a file. |
-| `workspaceSymbol` | `filePath`, `query` | Searches for symbols matching a query string across the project. |
-| `diagnostics` | `filePath` | Fetches active compiler warnings, syntax errors, and type mismatches. |
+| Operation            | Parameters                      | Description                                                           |
+| :------------------- | :------------------------------ | :-------------------------------------------------------------------- |
+| `goToDefinition`     | `filePath`, `line`, `character` | Resolves target declaration or interface definition coordinates.      |
+| `goToImplementation` | `filePath`, `line`, `character` | Finds concrete class or interface implementations.                    |
+| `findReferences`     | `filePath`, `line`, `character` | Discovers all usages of a symbol across the workspace.                |
+| `hover`              | `filePath`, `line`, `character` | Retrieves type signature, documentation, and hover cards.             |
+| `documentSymbol`     | `filePath`                      | Lists all classes, methods, and functions in a file.                  |
+| `workspaceSymbol`    | `filePath`, `query`             | Searches for symbols matching a query string across the project.      |
+| `diagnostics`        | `filePath`                      | Fetches active compiler warnings, syntax errors, and type mismatches. |
 
-*Note: Line and character parameters use 1-based indexing.*
+_Note: Line and character parameters use 1-based indexing._
 
 ### Managing Language Servers (`greg lsp`)
 
@@ -350,12 +353,12 @@ greg "List functions in src/format.ts" --disable-lsp
 
 For automation and CI/CD pipelines, `greg` adheres to standard POSIX process exit contracts. Shell scripts can inspect `$?` to branch deterministically:
 
-| Exit Code | Constant | Meaning | Shell Handling Recommendation |
-| :---: | :--- | :--- | :--- |
-| **`0`** | `success` | Agent execution completed successfully. | Proceed to subsequent pipeline stages. |
-| **`1`** | `runtimeError` | Runtime exception, model failure, or uncaught error. | Inspect standard error log and fail build. |
-| **`2`** | `permissionDenied` | Operation aborted because a tool was denied under fail-closed security. | Check `--permission-mode` or `--allowed-tools`. |
-| **`4`** | `timeout` | Wall-clock execution exceeded the configured `--timeout`. | Retry with higher timeout or increase reasoning budget. |
+| Exit Code | Constant           | Meaning                                                                 | Shell Handling Recommendation                           |
+| :-------: | :----------------- | :---------------------------------------------------------------------- | :------------------------------------------------------ |
+|  **`0`**  | `success`          | Agent execution completed successfully.                                 | Proceed to subsequent pipeline stages.                  |
+|  **`1`**  | `runtimeError`     | Runtime exception, model failure, or uncaught error.                    | Inspect standard error log and fail build.              |
+|  **`2`**  | `permissionDenied` | Operation aborted because a tool was denied under fail-closed security. | Check `--permission-mode` or `--allowed-tools`.         |
+|  **`4`**  | `timeout`          | Wall-clock execution exceeded the configured `--timeout`.               | Retry with higher timeout or increase reasoning budget. |
 
 ---
 
@@ -363,7 +366,7 @@ For automation and CI/CD pipelines, `greg` adheres to standard POSIX process exi
 
 Now that you have a comprehensive understanding of `greg`'s internal mechanics:
 
-* [Quickstart](/quickstart): Walk through your first practical task from start to finish.
-* [Managing Providers](/model-providers): Configure frontier models, reasoning effort, and fallback chains.
-* [Managing Threads](/threads): Master session branching, checkpoints, and time-travel rollbacks.
-* [Common Workflows](/common-workflows): Explore real-world recipes for exploration, refactoring, and test automation.
+- [Quickstart](/quickstart): Walk through your first practical task from start to finish.
+- [Managing Providers](/model-providers): Configure frontier models, reasoning effort, and fallback chains.
+- [Managing Threads](/threads): Master session branching, checkpoints, and time-travel rollbacks.
+- [Common Workflows](/common-workflows): Explore real-world recipes for exploration, refactoring, and test automation.

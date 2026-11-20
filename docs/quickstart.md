@@ -11,16 +11,16 @@ This quickstart walks you through getting up and running with `greg` in your ter
 
 This page covers:
 
-* [Prerequisites](#prerequisites): What you need before getting started.
-* [Step 1: Install Greg](#step-1-install-greg): Downloading and verifying the standalone binary.
-* [Step 2: Configure Your Model Provider](#step-2-configure-your-model-provider): Setting API keys and default frontier models across providers.
-* [Step 3: Ask Your First Question](#step-3-ask-your-first-question): Read-only codebase exploration and architecture queries.
-* [Step 4: Make Your First Code Change](#step-4-make-your-first-code-change): Authorizing file mutations with `--permission-mode acceptEdits`.
-* [Step 5: Run Tests & Verify Solutions](#step-5-run-tests-verify-solutions): Constraining shell execution with scoped `--allowed-tools`.
-* [Step 6: Pipe Terminal Data into Greg](#step-6-pipe-terminal-data-into-greg): Unix composability with `stdin` pipes.
-* [Step 7: Continue Conversations with `-c`](#step-7-continue-conversations-with--c): Multi-turn session persistence.
-* [Essential Commands Cheat Sheet](#essential-commands-cheat-sheet): Quick reference of daily commands.
-* [Next Steps](#next-steps): Guided links to deeper topics.
+- [Prerequisites](#prerequisites): What you need before getting started.
+- [Step 1: Install Greg](#step-1-install-greg): Downloading and verifying the standalone binary.
+- [Step 2: Configure Your Model Provider](#step-2-configure-your-model-provider): Setting API keys and default frontier models across providers.
+- [Step 3: Ask Your First Question](#step-3-ask-your-first-question): Read-only codebase exploration and architecture queries.
+- [Step 4: Make Your First Code Change](#step-4-make-your-first-code-change): Authorizing file mutations with `--permission-mode acceptEdits`.
+- [Step 5: Run Tests & Verify Solutions](#step-5-run-tests-verify-solutions): Constraining shell execution with scoped `--allowed-tools`.
+- [Step 6: Pipe Terminal Data into Greg](#step-6-pipe-terminal-data-into-greg): Unix composability with `stdin` pipes.
+- [Step 7: Continue Conversations with `-c`](#step-7-continue-conversations-with--c): Multi-turn session persistence.
+- [Essential Commands Cheat Sheet](#essential-commands-cheat-sheet): Quick reference of daily commands.
+- [Next Steps](#next-steps): Guided links to deeper topics.
 
 ---
 
@@ -28,9 +28,9 @@ This page covers:
 
 Before beginning, ensure you have:
 
-* A terminal emulator (`bash`, `zsh`, `fish`, or terminal multiplexer).
-* An existing project directory or Git repository to test in.
-* An API key for your preferred frontier AI model provider (Anthropic, Google Gemini, OpenAI, DeepSeek, Groq, or OpenRouter).
+- A terminal emulator (`bash`, `zsh`, `fish`, or terminal multiplexer).
+- An existing project directory or Git repository to test in.
+- An API key for your preferred frontier AI model provider (Anthropic, Google Gemini, OpenAI, DeepSeek, Groq, or OpenRouter).
 
 ---
 
@@ -66,8 +66,10 @@ Set your provider API key as an environment variable and configure your default 
 export ANTHROPIC_API_KEY="sk-ant-..."
 
 # 2. Set Claude Sonnet 4.6 as your default model
+
 greg config set model anthropic/claude-sonnet-4-6
-```
+
+````
 
 ```bash Google Gemini
 # 1. Export your Gemini API key (or GOOGLE_API_KEY)
@@ -75,7 +77,7 @@ export GEMINI_API_KEY="AIzaSy..."
 
 # 2. Set Gemini 3.8 Flash as your default model
 greg config set model google/gemini-3.8-flash
-```
+````
 
 ```bash OpenAI
 # 1. Export your OpenAI API key
@@ -108,6 +110,7 @@ export OPENROUTER_API_KEY="sk-or-..."
 # 2. Route across models via OpenRouter
 greg config set model openrouter/anthropic/claude-sonnet-4-6
 ```
+
 </CodeGroup>
 
 Verify your active configuration:
@@ -164,6 +167,7 @@ greg "Add a slugify helper function to src/utils/strings.ts that converts string
 ```
 
 `greg` will:
+
 1. Locate `src/utils/strings.ts` (or create it if it does not exist).
 2. Inspect your repository's formatting, casing, and style conventions.
 3. Automatically record a pre-mutation snapshot checkpoint before touching disk.
@@ -241,20 +245,20 @@ greg threads list
 
 ## Essential Commands Cheat Sheet
 
-| Command | Purpose | Example |
-| :--- | :--- | :--- |
-| `greg "prompt"` | Run an autonomous task in read-only print mode | `greg "Explain this repository"` |
-| `greg "prompt" --permission-mode acceptEdits` | Allow file modifications | `greg "Add healthcheck route" --permission-mode acceptEdits` |
-| `greg -c "prompt"` | Continue the latest workspace session | `greg -c "Now add unit tests"` |
-| `greg -r <id> "prompt"` | Resume a specific session by thread ID | `greg -r 4f8a1234-... "Refactor this"` |
-| `git diff \| greg "prompt"` | Ingest piped standard input | `git diff \| greg "Summarize changes"` |
-| `greg checkpoints list` | List file mutation snapshot checkpoints | `greg checkpoints list` |
-| `greg checkpoints diff <seq>` | View file diff for a recorded checkpoint | `greg checkpoints diff 1` |
-| `greg checkpoints restore <seq>` | Roll back workspace to a checkpoint | `greg checkpoints restore 1` |
-| `greg threads list` | List conversation threads in workspace | `greg threads list` |
-| `greg config get [key]` | Inspect active configuration settings | `greg config get model` |
-| `greg config set <key> <val>` | Persist a configuration setting | `greg config set model anthropic/claude-sonnet-4-6` |
-| `greg update` | Update greg to the latest release | `greg update` |
+| Command                                       | Purpose                                        | Example                                                      |
+| :-------------------------------------------- | :--------------------------------------------- | :----------------------------------------------------------- |
+| `greg "prompt"`                               | Run an autonomous task in read-only print mode | `greg "Explain this repository"`                             |
+| `greg "prompt" --permission-mode acceptEdits` | Allow file modifications                       | `greg "Add healthcheck route" --permission-mode acceptEdits` |
+| `greg -c "prompt"`                            | Continue the latest workspace session          | `greg -c "Now add unit tests"`                               |
+| `greg -r <id> "prompt"`                       | Resume a specific session by thread ID         | `greg -r 4f8a1234-... "Refactor this"`                       |
+| `git diff \| greg "prompt"`                   | Ingest piped standard input                    | `git diff \| greg "Summarize changes"`                       |
+| `greg checkpoints list`                       | List file mutation snapshot checkpoints        | `greg checkpoints list`                                      |
+| `greg checkpoints diff <seq>`                 | View file diff for a recorded checkpoint       | `greg checkpoints diff 1`                                    |
+| `greg checkpoints restore <seq>`              | Roll back workspace to a checkpoint            | `greg checkpoints restore 1`                                 |
+| `greg threads list`                           | List conversation threads in workspace         | `greg threads list`                                          |
+| `greg config get [key]`                       | Inspect active configuration settings          | `greg config get model`                                      |
+| `greg config set <key> <val>`                 | Persist a configuration setting                | `greg config set model anthropic/claude-sonnet-4-6`          |
+| `greg update`                                 | Update greg to the latest release              | `greg update`                                                |
 
 ---
 
@@ -262,7 +266,7 @@ greg threads list
 
 Now that you have completed your first task, explore these guides to unlock `greg`'s full capabilities:
 
-* [Common Workflows](/common-workflows): In-depth step-by-step recipes for bug fixing, refactoring, test generation, and CI automation.
-* [Managing Threads](/threads): Master multi-turn persistence, time-travel branching (`--resume-session-at`), and checkpoint rollbacks.
-* [Managing Providers](/model-providers): Configure credentials, base URL overrides, reasoning effort, and fallback chains across 13+ providers.
-* [Installation Guide](/installation): Detailed setup for all operating systems, offline releases, and source compilation.
+- [Common Workflows](/common-workflows): In-depth step-by-step recipes for bug fixing, refactoring, test generation, and CI automation.
+- [Managing Threads](/threads): Master multi-turn persistence, time-travel branching (`--resume-session-at`), and checkpoint rollbacks.
+- [Managing Providers](/model-providers): Configure credentials, base URL overrides, reasoning effort, and fallback chains across 13+ providers.
+- [Installation Guide](/installation): Detailed setup for all operating systems, offline releases, and source compilation.

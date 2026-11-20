@@ -11,16 +11,16 @@ Looking for a quick hands-on tutorial after installation? Check out the [Quickst
 
 This page covers:
 
-* [Supported Platforms](#supported-platforms): Operating systems and CPU architectures.
-* [Method 1: Automated Installer (Recommended)](#method-1-automated-installer-recommended): Quick installation script and customizable flags.
-* [Method 2: Direct Release Downloads](#method-2-direct-release-downloads): Manual tarball downloads for air-gapped or customized environments.
-* [Method 3: Building from Source](#method-3-building-from-source): Compiling the standalone binary using Bun.
-* [Verifying the Installation](#verifying-the-installation): Confirming your setup and active version.
-* [Managing Updates](#managing-updates): Checking for releases, upgrading, and pinning specific versions.
-* [Custom Storage & Config (`HERNEX_HOME`)](#custom-storage-config-hernex_home): Overriding the default `~/.greg` state directory.
-* [Troubleshooting & PATH Setup](#troubleshooting-path-setup): Resolving `command not found: greg` across Zsh, Bash, and Fish.
-* [Uninstalling](#uninstalling): Completely removing the binary and runtime state.
-* [Next Steps](#next-steps): Next guides to explore.
+- [Supported Platforms](#supported-platforms): Operating systems and CPU architectures.
+- [Method 1: Automated Installer (Recommended)](#method-1-automated-installer-recommended): Quick installation script and customizable flags.
+- [Method 2: Direct Release Downloads](#method-2-direct-release-downloads): Manual tarball downloads for air-gapped or customized environments.
+- [Method 3: Building from Source](#method-3-building-from-source): Compiling the standalone binary using Bun.
+- [Verifying the Installation](#verifying-the-installation): Confirming your setup and active version.
+- [Managing Updates](#managing-updates): Checking for releases, upgrading, and pinning specific versions.
+- [Custom Storage & Config (`HERNEX_HOME`)](#custom-storage-config-hernex_home): Overriding the default `~/.greg` state directory.
+- [Troubleshooting & PATH Setup](#troubleshooting-path-setup): Resolving `command not found: greg` across Zsh, Bash, and Fish.
+- [Uninstalling](#uninstalling): Completely removing the binary and runtime state.
+- [Next Steps](#next-steps): Next guides to explore.
 
 ---
 
@@ -28,14 +28,14 @@ This page covers:
 
 `greg` provides precompiled, statically linked standalone binaries for all modern desktop and server platforms:
 
-| Operating System | Architecture | Target Platform String |
-| :--- | :--- | :--- |
-| **macOS** | Apple Silicon (M1/M2/M3/M4) | `darwin-arm64` |
-| **macOS** | Intel x86_64 | `darwin-x64` |
-| **Linux** | x86_64 (glibc / musl) | `linux-x64` |
-| **Linux** | ARM64 (aarch64) | `linux-arm64` |
-| **Windows** | x86_64 (Git Bash / MinGW / WSL) | `windows-x64` |
-| **Android** | ARM64 via Termux | `android-arm64` |
+| Operating System | Architecture                    | Target Platform String |
+| :--------------- | :------------------------------ | :--------------------- |
+| **macOS**        | Apple Silicon (M1/M2/M3/M4)     | `darwin-arm64`         |
+| **macOS**        | Intel x86_64                    | `darwin-x64`           |
+| **Linux**        | x86_64 (glibc / musl)           | `linux-x64`            |
+| **Linux**        | ARM64 (aarch64)                 | `linux-arm64`          |
+| **Windows**      | x86_64 (Git Bash / MinGW / WSL) | `windows-x64`          |
+| **Android**      | ARM64 via Termux                | `android-arm64`        |
 
 ---
 
@@ -59,13 +59,15 @@ curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/inst
 You can customize the installation by passing arguments through `bash -s -- [options]`:
 
 #### 1. Pin a Specific Version
+
 Install an exact version of `greg` rather than latest:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash -s -- --version 0.1.8
+curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/install.sh | bash -s -- --version 0.1.9
 ```
 
 #### 2. Prevent Modifying Shell Profiles
+
 If you manage your `PATH` manually (e.g. through dotfiles or Nix):
 
 ```bash
@@ -73,6 +75,7 @@ curl -fsSL https://raw.githubusercontent.com/amaranthic/greg/main/installer/inst
 ```
 
 #### 3. Install from a Local Binary
+
 Install a binary you built locally without downloading from GitHub:
 
 ```bash
@@ -86,14 +89,17 @@ Install a binary you built locally without downloading from GitHub:
 For air-gapped environments, CI runners, or manual deployments, download official release archives directly:
 
 #### 1. Download the Platform Archive
+
 Visit the [Official Releases Page](https://github.com/amaranthic/greg/releases/latest) and download the appropriate asset:
-* **macOS (Apple Silicon)**: `greg-darwin-arm64.tar.gz`
-* **macOS (Intel)**: `greg-darwin-x64.tar.gz`
-* **Linux (x64)**: `greg-linux-x64.tar.gz`
-* **Linux (ARM64)**: `greg-linux-arm64.tar.gz`
-* **Windows**: `greg-windows-x64.zip`
+
+- **macOS (Apple Silicon)**: `greg-darwin-arm64.tar.gz`
+- **macOS (Intel)**: `greg-darwin-x64.tar.gz`
+- **Linux (x64)**: `greg-linux-x64.tar.gz`
+- **Linux (ARM64)**: `greg-linux-arm64.tar.gz`
+- **Windows**: `greg-windows-x64.zip`
 
 #### 2. Extract and Move to System PATH
+
 Extract the archive and move the binary to any directory within your system `PATH`:
 
 ```bash
@@ -111,8 +117,8 @@ To compile `greg` from source or contribute to its development:
 
 ### Prerequisites
 
-* [Bun](https://bun.sh) (`v1.2` or later)
-* [Git](https://git-scm.com)
+- [Bun](https://bun.sh) (`v1.2` or later)
+- [Git](https://git-scm.com)
 
 ### Compilation Steps
 
@@ -154,7 +160,7 @@ Open a fresh terminal window and run:
 greg --version
 ```
 
-If the installation succeeded, `greg` prints its version number (e.g. `greg 0.1.8`).
+If the installation succeeded, `greg` prints its version number (e.g. `greg 0.1.9`).
 
 Next, run a quick dry-run check:
 
@@ -169,6 +175,7 @@ greg --help
 `greg` includes a built-in self-updater that verifies and updates the binary in-place:
 
 ### Check for Updates
+
 Inspect if a newer release is available on GitHub:
 
 ```bash
@@ -176,6 +183,7 @@ greg update --check
 ```
 
 ### Upgrade to the Latest Release
+
 Download and apply the latest release:
 
 ```bash
@@ -183,6 +191,7 @@ greg update
 ```
 
 ### Pin or Roll Back to a Specific Version
+
 Install an exact historical release:
 
 ```bash
@@ -225,6 +234,7 @@ export PATH="$HOME/.greg/bin:$PATH"
 ```bash fish (~/.config/fish/config.fish)
 fish_add_path ~/.greg/bin
 ```
+
 </CodeGroup>
 
 Then reload your shell configuration:
@@ -256,7 +266,7 @@ rm -rf ~/.greg
 
 Now that your installation is complete and verified:
 
-* [Quickstart](/quickstart): Complete your first autonomous task in under two minutes.
-* [Managing Providers](/model-providers): Configure your API keys for Claude, Gemini, GPT-5, DeepSeek, or local gateways.
-* [Common Workflows](/common-workflows): Explore real-world step-by-step developer recipes.
-* [Managing Threads](/threads): Understand persistent threads, checkpoints, and time-travel rollback workflows.
+- [Quickstart](/quickstart): Complete your first autonomous task in under two minutes.
+- [Managing Providers](/model-providers): Configure your API keys for Claude, Gemini, GPT-5, DeepSeek, or local gateways.
+- [Common Workflows](/common-workflows): Explore real-world step-by-step developer recipes.
+- [Managing Threads](/threads): Understand persistent threads, checkpoints, and time-travel rollback workflows.
