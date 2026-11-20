@@ -95,6 +95,8 @@ export interface ExecutionOptions {
   readonly jsonSchema?: Record<string, unknown> | undefined;
   /** Whether verbose diagnostic output is enabled on standard error. */
   readonly verbose?: boolean | undefined;
+  /** Whether model thinking messages are output to stderr (requires verbose). */
+  readonly includeThoughts?: boolean | undefined;
   /** Whether to run in bare mode, skipping ambient discovery and lifecycle hooks. */
   readonly bare?: boolean | undefined;
   /**
@@ -219,7 +221,10 @@ export async function executePrintRun(
   workingDirectory: string = process.cwd(),
 ): Promise<ExitCode> {
   const { configuration, outputFormat, verbose } = options;
-  const logger = new StderrLogger(verbose ? { isVerbose: true } : {});
+  const logger = new StderrLogger({
+    isVerbose: verbose,
+    includeThoughts: options.includeThoughts,
+  });
   const signalLifecycle = new SignalLifecycle();
 
   signalLifecycle.registerCleanup(() => {
@@ -835,15 +840,18 @@ export async function executePrintRun(
         for (const currentPrompt of promptsToExecute) {
           for await (const event of engine.runTurn(currentPrompt)) {
             if (event.type === "tokenDelta") {
+              logger.thoughtFinish();
               turnText += event.text;
               if (firstTokenAt === undefined) {
                 firstTokenAt = Date.now();
               }
             } else if (event.type === "thoughtDelta") {
+              logger.thoughtDelta(event.text);
               if (firstTokenAt === undefined) {
                 firstTokenAt = Date.now();
               }
             } else if (event.type === "turnFinished") {
+              logger.thoughtFinish();
               numTurns = event.turnIndex;
               stopReason = event.finishReason;
               totalUsage = event.totalUsage;
@@ -855,10 +863,12 @@ export async function executePrintRun(
             sink.emit(event);
 
             if (event.type === "toolExecutionStarted") {
+              logger.thoughtFinish();
               logger.toolStart(event.toolName);
             } else if (event.type === "toolExecutionFinished") {
               logger.toolFinish(event.toolName, event.isError, event.durationMs);
             } else if (event.type === "error" && event.isFatal) {
+              logger.thoughtFinish();
               modelTurnFailed = true;
               exitCode = exitCodes.runtimeError;
               logger.error(event.error.message);

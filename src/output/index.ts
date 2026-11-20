@@ -17,4 +17,4 @@ export {
   type RunMetrics,
 } from "./sink.js";
 
-export { StderrLogger } from "./log.js";
+export { StderrLogger, type StderrLoggerOptions } from "./log.js";

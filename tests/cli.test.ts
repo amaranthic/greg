@@ -402,6 +402,18 @@ describe("Greg CLI End-to-End Execution", () => {
     expect(stderr).toContain('Error: Invalid input format "xml"');
   });
 
+  it("rejects --include-thoughts when --verbose is not enabled with exit code 1", async () => {
+    const proc = Bun.spawn(["bun", cliEntry, "test prompt", "--include-thoughts"], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const stderr = await new Response(proc.stderr).text();
+    const exitCode = await proc.exited;
+
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("Error: --include-thoughts requires --verbose to be enabled");
+  });
+
   it("executes in bare mode suppressing ambient configuration while preserving tools", async () => {
     const tempHome = await mkdtemp(path.join(os.tmpdir(), "greg-bare-test-"));
     try {

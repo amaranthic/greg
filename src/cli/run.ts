@@ -45,6 +45,11 @@ export interface RunCommandArgs {
   readonly home?: string | undefined;
   readonly bare?: boolean | undefined;
   readonly verbose?: boolean | undefined;
+  /**
+   * When true, model thinking messages are output to stderr.
+   * Requires `--verbose` to be enabled.
+   */
+  readonly includeThoughts?: boolean | undefined;
   readonly apiKey?: string | undefined;
   readonly baseUrl?: string | undefined;
   /**
@@ -103,6 +108,11 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
 
   if (rawInputFormat === "stream-json" && outputFormat !== "stream-json") {
     writeToStderr("Error: --input-format=stream-json requires output-format=stream-json.\n");
+    process.exit(1);
+  }
+
+  if (args.includeThoughts && !args.verbose) {
+    writeToStderr("Error: --include-thoughts requires --verbose to be enabled.\n");
     process.exit(1);
   }
 
@@ -272,6 +282,7 @@ export async function executeRunAction(args: RunCommandArgs): Promise<void> {
     appendSystemPrompt: args.appendSystemPrompt,
     jsonSchema: parsedJsonSchema,
     verbose: args.verbose,
+    includeThoughts: args.includeThoughts,
     bare: args.bare,
     disableLsp: args.disableLsp,
   });

@@ -6,7 +6,7 @@
 import { Command } from "commander";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { chmod, copyFile, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -140,6 +140,30 @@ async function downloadArchiveWithProgress(url: string): Promise<Buffer> {
 }
 
 /**
+ * Atomically replaces a target executable to avoid ETXTBSY errors on running binaries.
+ *
+ * @param sourcePath - Path to the newly extracted binary file.
+ * @param destinationPath - Path to the final executable destination.
+ */
+async function replaceBinaryAtomically(sourcePath: string, destinationPath: string): Promise<void> {
+  const destinationDir = path.dirname(destinationPath);
+  const stagingPath = path.join(
+    destinationDir,
+    `.${path.basename(destinationPath)}.tmp.${Date.now()}`,
+  );
+
+  await copyFile(sourcePath, stagingPath);
+  await chmod(stagingPath, 0o755);
+
+  try {
+    await rename(stagingPath, destinationPath);
+  } catch {
+    await rm(destinationPath, { force: true }).catch(() => {});
+    await rename(stagingPath, destinationPath);
+  }
+}
+
+/**
  * Executes the `update` subcommand workflow.
  *
  * @param options - Parsed command options.
@@ -215,8 +239,7 @@ export async function executeUpdateAction(options: UpdateCommandOptions): Promis
     // Handle --bare: place binary in current directory
     if (options.bare) {
       const destPath = path.resolve(process.cwd(), binaryName);
-      await copyFile(extractedBin, destPath);
-      await chmod(destPath, 0o755);
+      await replaceBinaryAtomically(extractedBin, destPath);
       writeToStdout(
         `${brandColors.muted}Placed ${brandColors.reset}${binaryName} ${brandColors.muted}in current directory.${brandColors.reset}\n`,
       );
@@ -228,8 +251,7 @@ export async function executeUpdateAction(options: UpdateCommandOptions): Promis
     await mkdir(binDir, { recursive: true });
 
     const targetBin = path.join(binDir, binaryName);
-    await copyFile(extractedBin, targetBin);
-    await chmod(targetBin, 0o755);
+    await replaceBinaryAtomically(extractedBin, targetBin);
 
     // 5. Success summary banner matching installer
     writeToStdout(

@@ -92,6 +92,7 @@ describe("Output Sinks Formatting", () => {
       expect(parsed.type).toBe("result");
       expect(parsed.subtype).toBe("success");
       expect(parsed.result).toBe("Structured answer");
+      expect(parsed.thoughts).toBeNull();
       expect(parsed.threadId).toBe("test-thread-01");
       expect(parsed.sessionId).toBe("test-thread-01");
       expect(parsed.finishReason).toBe("completed");
@@ -246,6 +247,70 @@ describe("StderrLogger Diagnostics", () => {
       const logger = new StderrLogger({ isVerbose: false });
       logger.toolStart("Read", "src/main.ts");
       logger.toolFinish("Read", false, 50);
+
+      expect(stderrOutput).toBe("");
+    } finally {
+      process.stderr.write = originalStderrWrite;
+    }
+  });
+
+  it("emits thinking process with arrow format when includeThoughts is enabled", () => {
+    let stderrOutput = "";
+    const originalStderrWrite = process.stderr.write;
+    process.stderr.write = (chunk: any) => {
+      stderrOutput += chunk.toString();
+      return true;
+    };
+
+    try {
+      const logger = new StderrLogger({ isVerbose: true, includeThoughts: true });
+      logger.thoughtDelta("I am reasoning about the issue.\n");
+      logger.thoughtDelta("Checking dependencies.");
+      logger.thoughtFinish();
+
+      expect(stderrOutput).toContain("-> thought\n");
+      expect(stderrOutput).toContain("I am reasoning about the issue.\nChecking dependencies.\n");
+      expect(stderrOutput).toContain("<- thought [done ");
+    } finally {
+      process.stderr.write = originalStderrWrite;
+    }
+  });
+
+  it("automatically closes thinking block when tool starts or logger writes", () => {
+    let stderrOutput = "";
+    const originalStderrWrite = process.stderr.write;
+    process.stderr.write = (chunk: any) => {
+      stderrOutput += chunk.toString();
+      return true;
+    };
+
+    try {
+      const logger = new StderrLogger({ isVerbose: true, includeThoughts: true });
+      logger.thoughtDelta("Inspecting file tree");
+      logger.toolStart("Glob", "**/*.ts");
+      logger.toolFinish("Glob", false, 15);
+
+      expect(stderrOutput).toContain("-> thought\n");
+      expect(stderrOutput).toContain("Inspecting file tree\n<- thought [done ");
+      expect(stderrOutput).toContain("-> tool: Glob (**/*.ts)...");
+      expect(stderrOutput).toContain("<- tool: Glob [done 15ms]");
+    } finally {
+      process.stderr.write = originalStderrWrite;
+    }
+  });
+
+  it("suppresses thinking output when includeThoughts is false", () => {
+    let stderrOutput = "";
+    const originalStderrWrite = process.stderr.write;
+    process.stderr.write = (chunk: any) => {
+      stderrOutput += chunk.toString();
+      return true;
+    };
+
+    try {
+      const logger = new StderrLogger({ isVerbose: true, includeThoughts: false });
+      logger.thoughtDelta("Secret thinking");
+      logger.thoughtFinish();
 
       expect(stderrOutput).toBe("");
     } finally {

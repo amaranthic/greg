@@ -87,6 +87,7 @@ export function createProgram(): Command {
     .option("--home <dir>", "Override state storage and configuration home directory")
     .option("--bare", "Suppress hooks, ambient instruction discovery, and persistent settings")
     .option("--verbose", "Emit diagnostic tool activity and status to stderr")
+    .option("--include-thoughts", "Emit model thinking process to stderr (requires --verbose)")
     .option("--api-key <key>", "Explicit provider API key override")
     .option("--base-url <url>", "Explicit provider base URL override")
     .option(

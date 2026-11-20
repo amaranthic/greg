@@ -109,6 +109,7 @@ export class TextSink implements OutputSink {
 export class JsonSink implements OutputSink {
   private readonly options: OutputSinkOptions;
   private accumulatedText = "";
+  private accumulatedThoughts = "";
   private finishReason = "unknown";
   private tokenUsage: StepTokenUsage | null = null;
   private readonly checkpoints: string[] = [];
@@ -126,6 +127,8 @@ export class JsonSink implements OutputSink {
   public emit(event: AgentEvent): void {
     if (event.type === "tokenDelta") {
       this.accumulatedText += event.text;
+    } else if (event.type === "thoughtDelta") {
+      this.accumulatedThoughts += event.text;
     } else if (event.type === "turnFinished") {
       this.finishReason = event.finishReason;
       this.tokenUsage = event.totalUsage;
@@ -154,6 +157,7 @@ export class JsonSink implements OutputSink {
       type: "result",
       subtype: exitCode === 0 ? "success" : "error",
       result: this.accumulatedText,
+      thoughts: this.accumulatedThoughts.length > 0 ? this.accumulatedThoughts : null,
       threadId: this.options.threadId,
       sessionId: this.options.threadId,
       model: this.options.model,
@@ -181,6 +185,7 @@ export class JsonSink implements OutputSink {
 export class StreamJsonSink implements OutputSink {
   private readonly options: OutputSinkOptions;
   private accumulatedText = "";
+  private accumulatedThoughts = "";
   private finishReason = "unknown";
   private tokenUsage: StepTokenUsage | null = null;
   private readonly checkpoints: string[] = [];
